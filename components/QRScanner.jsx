@@ -13,29 +13,31 @@ export default function QRScanner({ onScan, onError, paused }) {
       const scanner = new Html5Qrcode(containerId, { verbose: false });
       scannerRef.current = scanner;
 
-      Html5Qrcode.getCameras()
-        .then((cameras) => {
-          if (cancelled || !cameras?.length) return;
-          // Arka kamerayı tercih et (mobil cihazlarda giriş/çıkış için ideal)
-          const backCam =
-            cameras.find((c) => /back|rear|environment/i.test(c.label)) || cameras[0];
+      // Kamera etiketine göre seçmek yerine doğrudan arka kamerayı (environment)
+      // talep ediyoruz - bu, iPhone/Safari dahil çoğu cihazda daha güvenilir çalışır.
+      const startWith = (constraint) =>
+        scanner.start(
+          constraint,
+          { fps: 10, qrbox: { width: 240, height: 240 } },
+          (decodedText) => {
+            if (!isRunningRef.current) return;
+            onScan(decodedText);
+          },
+          () => {} // sürekli tarama hatalarını sessiz geç
+        );
 
-          scanner
-            .start(
-              backCam.id,
-              { fps: 10, qrbox: { width: 240, height: 240 } },
-              (decodedText) => {
-                if (!isRunningRef.current) return;
-                onScan(decodedText);
-              },
-              () => {} // sürekli tarama hatalarını sessiz geç
-            )
+      startWith({ facingMode: { exact: "environment" } })
+        .then(() => {
+          isRunningRef.current = true;
+        })
+        .catch(() => {
+          // Bazı cihazlarda "exact" reddedilebilir; daha esnek bir istekle tekrar dene
+          startWith({ facingMode: "environment" })
             .then(() => {
               isRunningRef.current = true;
             })
             .catch((err) => onError?.(err?.message || "Kamera başlatılamadı."));
-        })
-        .catch((err) => onError?.("Kamera bulunamadı: " + err.message));
+        });
     });
 
     return () => {
