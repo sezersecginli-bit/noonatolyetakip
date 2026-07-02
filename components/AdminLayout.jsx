@@ -13,7 +13,7 @@ const NAV = [
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
-  const [session, setSession] = useState(undefined);
+  const [session, setSession] = useState(undefined); // undefined = yükleniyor
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
