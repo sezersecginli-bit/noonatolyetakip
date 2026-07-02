@@ -8,7 +8,11 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [dept, setDept] = useState("");
-  const [view, setView] = useState("list"); // list | qr
+  const [dailyWage, setDailyWage] = useState("");
+  const [overtimeRate, setOvertimeRate] = useState("");
+  const [deductionRate, setDeductionRate] = useState("");
+  const [weekendMult, setWeekendMult] = useState("1.5");
+  const [view, setView] = useState("list");
   const [error, setError] = useState("");
 
   const load = async () => {
@@ -30,7 +34,14 @@ export default function EmployeesPage() {
     const res = await authedFetch("/api/employees", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ full_name: name, department: dept }),
+      body: JSON.stringify({
+        full_name: name,
+        department: dept,
+        daily_wage: dailyWage ? Number(dailyWage) : 0,
+        overtime_hourly_rate: overtimeRate ? Number(overtimeRate) : 0,
+        early_leave_deduction_hourly: deductionRate ? Number(deductionRate) : 0,
+        weekend_multiplier: weekendMult ? Number(weekendMult) : 1.5,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -39,6 +50,10 @@ export default function EmployeesPage() {
     }
     setName("");
     setDept("");
+    setDailyWage("");
+    setOvertimeRate("");
+    setDeductionRate("");
+    setWeekendMult("1.5");
     load();
   };
 
@@ -58,6 +73,35 @@ export default function EmployeesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: emp.id }),
     });
+    load();
+  };
+
+  const [editingId, setEditingId] = useState(null);
+  const [editWage, setEditWage] = useState({});
+
+  const startEdit = (emp) => {
+    setEditingId(emp.id);
+    setEditWage({
+      daily_wage: emp.daily_wage,
+      overtime_hourly_rate: emp.overtime_hourly_rate,
+      early_leave_deduction_hourly: emp.early_leave_deduction_hourly,
+      weekend_multiplier: emp.weekend_multiplier,
+    });
+  };
+
+  const saveEdit = async (emp) => {
+    await authedFetch("/api/employees", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: emp.id,
+        daily_wage: Number(editWage.daily_wage) || 0,
+        overtime_hourly_rate: Number(editWage.overtime_hourly_rate) || 0,
+        early_leave_deduction_hourly: Number(editWage.early_leave_deduction_hourly) || 0,
+        weekend_multiplier: Number(editWage.weekend_multiplier) || 1.5,
+      }),
+    });
+    setEditingId(null);
     load();
   };
 
@@ -103,6 +147,46 @@ export default function EmployeesPage() {
             placeholder="Ör. Üretim"
           />
         </div>
+        <div className="w-[130px]">
+          <label className="block text-xs font-medium text-ink/60 mb-1">Günlük ücret (TL)</label>
+          <input
+            type="number" min="0" step="0.01"
+            value={dailyWage}
+            onChange={(e) => setDailyWage(e.target.value)}
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm"
+            placeholder="3500"
+          />
+        </div>
+        <div className="w-[130px]">
+          <label className="block text-xs font-medium text-ink/60 mb-1">Mesai (TL/saat)</label>
+          <input
+            type="number" min="0" step="0.01"
+            value={overtimeRate}
+            onChange={(e) => setOvertimeRate(e.target.value)}
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm"
+            placeholder="350"
+          />
+        </div>
+        <div className="w-[140px]">
+          <label className="block text-xs font-medium text-ink/60 mb-1">Erken çıkış kesinti (TL/saat)</label>
+          <input
+            type="number" min="0" step="0.01"
+            value={deductionRate}
+            onChange={(e) => setDeductionRate(e.target.value)}
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm"
+            placeholder="350"
+          />
+        </div>
+        <div className="w-[110px]">
+          <label className="block text-xs font-medium text-ink/60 mb-1">Hafta sonu çarpanı</label>
+          <input
+            type="number" min="1" step="0.1"
+            value={weekendMult}
+            onChange={(e) => setWeekendMult(e.target.value)}
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm"
+            placeholder="1.5"
+          />
+        </div>
         <button type="submit" className="rounded-full bg-brand text-white font-medium px-5 py-2 text-sm">
           Ekle
         </button>
@@ -125,12 +209,13 @@ export default function EmployeesPage() {
                 <th className="text-left px-4 py-3 font-medium">Ad Soyad</th>
                 <th className="text-left px-4 py-3 font-medium">Departman</th>
                 <th className="text-left px-4 py-3 font-medium">Durum</th>
+                <th className="text-left px-4 py-3 font-medium">Ücret</th>
                 <th className="text-right px-4 py-3 font-medium">İşlemler</th>
               </tr>
             </thead>
             <tbody>
               {employees.map((emp) => (
-                <tr key={emp.id} className="border-t border-line">
+                <tr key={emp.id} className="border-t border-line align-top">
                   <td className="px-4 py-3 font-medium text-ink">{emp.full_name}</td>
                   <td className="px-4 py-3 text-ink/60">{emp.department || "—"}</td>
                   <td className="px-4 py-3">
@@ -138,7 +223,33 @@ export default function EmployeesPage() {
                       {emp.is_active ? "Aktif" : "Pasif"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right space-x-3">
+                  <td className="px-4 py-3">
+                    {editingId === emp.id ? (
+                      <div className="flex flex-wrap gap-2">
+                        <input type="number" min="0" step="0.01" value={editWage.daily_wage}
+                          onChange={(e) => setEditWage({ ...editWage, daily_wage: e.target.value })}
+                          className="w-20 rounded border border-line px-2 py-1 text-xs" placeholder="Günlük" />
+                        <input type="number" min="0" step="0.01" value={editWage.overtime_hourly_rate}
+                          onChange={(e) => setEditWage({ ...editWage, overtime_hourly_rate: e.target.value })}
+                          className="w-20 rounded border border-line px-2 py-1 text-xs" placeholder="Mesai/sa" />
+                        <input type="number" min="0" step="0.01" value={editWage.early_leave_deduction_hourly}
+                          onChange={(e) => setEditWage({ ...editWage, early_leave_deduction_hourly: e.target.value })}
+                          className="w-20 rounded border border-line px-2 py-1 text-xs" placeholder="Kesinti/sa" />
+                        <input type="number" min="1" step="0.1" value={editWage.weekend_multiplier}
+                          onChange={(e) => setEditWage({ ...editWage, weekend_multiplier: e.target.value })}
+                          className="w-16 rounded border border-line px-2 py-1 text-xs" placeholder="H.sonu×" />
+                        <button onClick={() => saveEdit(emp)} className="text-brand text-xs font-medium underline">Kaydet</button>
+                        <button onClick={() => setEditingId(null)} className="text-ink/40 text-xs underline">Vazgeç</button>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-ink/60 space-y-0.5">
+                        <p>{emp.daily_wage} TL/gün · {emp.overtime_hourly_rate} TL/sa mesai</p>
+                        <p>{emp.early_leave_deduction_hourly} TL/sa kesinti · {emp.weekend_multiplier}× h.sonu</p>
+                        <button onClick={() => startEdit(emp)} className="text-brand underline">Düzenle</button>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right space-x-3 whitespace-nowrap">
                     <button onClick={() => toggleActive(emp)} className="text-brand text-xs font-medium underline">
                       {emp.is_active ? "Pasife al" : "Aktive et"}
                     </button>
