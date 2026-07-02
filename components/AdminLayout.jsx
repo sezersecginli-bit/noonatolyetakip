@@ -7,12 +7,13 @@ const NAV = [
   { href: "/admin", label: "Panel" },
   { href: "/admin/employees", label: "Personel" },
   { href: "/admin/reports", label: "Raporlar" },
+  { href: "/admin/payroll", label: "Bordro" },
   { href: "/admin/settings", label: "Ayarlar" },
 ];
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
-  const [session, setSession] = useState(undefined); // undefined = yükleniyor
+  const [session, setSession] = useState(undefined);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
