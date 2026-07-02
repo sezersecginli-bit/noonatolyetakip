@@ -1,285 +1,161 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Head from "next/head";
-import dynamic from "next/dynamic";
-import { getCurrentPosition } from "../lib/geo";
+import AdminLayout, { authedFetch } from "../../components/AdminLayout";
+import StatusBadge from "../../components/StatusBadge";
 
-const QRScanner = dynamic(() => import("../components/QRScanner"), { ssr: false });
+function fmtTime(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString("tr-TR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Istanbul",
+  });
+}
 
-export default function ScanPage() {
-  const [status, setStatus] = useState("idle");
-  const [result, setResult] = useState(null);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [fieldMode, setFieldMode] = useState(false);
-  const [fieldNote, setFieldNote] = useState("");
-  const [employees, setEmployees] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState("");
-  const busyRef = useRef(false);
+function fmtDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return `${d}.${m}.${y}`;
+}
 
-  useEffect(() => {
-    if (fieldMode && employees.length === 0) {
-      fetch("/api/employees-public")
-        .then((r) => r.json())
-        .then((d) => setEmployees(d.employees || []))
-        .catch(() => {});
-    }
-  }, [fieldMode, employees.length]);
+function todayStr() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
+}
 
-  const handleScan = useCallback(async (qrText) => {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    setStatus("working");
-    setErrorMsg("");
+export default function DashboardPage() {
+  const [date, setDate] = useState(todayStr());
+  const [rows, setRows] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
 
-    try {
-      let lat = null,
-        lng = null;
-      try {
-        const pos = await getCurrentPosition({ timeout: 6000 });
-        lat = pos.lat;
-        lng = pos.lng;
-      } catch {
-      }
-
-      const res = await fetch("/api/checkin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ qr_token: qrText, lat, lng }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setErrorMsg(data.error || "İşlem başarısız.");
-        setStatus("error");
-      } else {
-        setResult(data);
-        setStatus("result");
-      }
-    } catch (err) {
-      setErrorMsg("Bağlantı hatası: " + err.message);
-      setStatus("error");
-    } finally {
-      setTimeout(() => {
-        busyRef.current = false;
-      }, 2500);
-    }
-  }, []);
-
-  const submitFieldNote = async () => {
-    if (!selectedEmployee) {
-      setErrorMsg("Lütfen isminizi seçin.");
-      setStatus("error");
-      return;
-    }
-    if (!fieldNote.trim()) {
-      setErrorMsg("Lütfen nerede olduğunuzu yazın.");
-      setStatus("error");
-      return;
-    }
-    setStatus("working");
-    setErrorMsg("");
-    try {
-      const res = await fetch("/api/fieldnote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employee_id: selectedEmployee, note: fieldNote.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(data.error || "İşlem başarısız.");
-        setStatus("error");
-      } else {
-        setResult({ field: true, ...data });
-        setStatus("result");
-      }
-    } catch (err) {
-      setErrorMsg("Bağlantı hatası: " + err.message);
-      setStatus("error");
-    }
+  const load = async () => {
+    setLoading(true);
+    const [dashRes, notesRes] = await Promise.all([
+      authedFetch(`/api/dashboard?date=${date}`),
+      authedFetch(`/api/fieldnotes?date=${date}`),
+    ]);
+    const dashData = await dashRes.json();
+    const notesData = await notesRes.json();
+    setRows(dashData.summary || []);
+    setNotes(notesData.notes || []);
+    setLoading(false);
   };
 
-  const reset = () => {
-    setStatus("idle");
-    setResult(null);
-    setErrorMsg("");
-    setFieldNote("");
-    setSelectedEmployee("");
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
+
+  const filtered = rows.filter((r) => {
+    if (filter === "all") return true;
+    if (filter === "gec") return r.is_late;
+    if (filter === "erken") return r.is_early_leave;
+    return r.status === filter;
+  });
+
+  const counts = {
+    toplam: rows.length,
+    icerde: rows.filter((r) => r.status === "icerde").length,
+    cikti: rows.filter((r) => r.status === "cikti").length,
+    gelmedi: rows.filter((r) => r.status === "gelmedi").length,
+    gec: rows.filter((r) => r.is_late).length,
+    erken: rows.filter((r) => r.is_early_leave).length,
   };
 
   return (
-    <>
+    <AdminLayout>
       <Head>
-        <title>Personel Giriş / Çıkış</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <title>Panel - PDKS</title>
       </Head>
 
-      <main className="min-h-screen bg-canvas flex flex-col items-center px-5 py-8">
-        <div className="w-full max-w-sm">
-          <header className="mb-6 text-center">
-            <p className="font-mono text-xs tracking-wider text-brand uppercase mb-1">PDKS</p>
-            <h1 className="font-display text-2xl font-semibold text-ink">
-              {fieldMode ? "Saha / montaj notu" : "QR kodunu okutun"}
-            </h1>
-            <p className="text-sm text-ink/60 mt-1">
-              {fieldMode
-                ? "İşyerine uğramadan direkt sahaya gidenler için."
-                : "Giriş ve çıkış otomatik olarak algılanır."}
-            </p>
-          </header>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h1 className="font-display text-2xl font-semibold text-ink">Günlük Personel Durumu</h1>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-lg border border-line px-3 py-2 text-sm"
+        />
+      </div>
 
-          {(status === "idle" || status === "working") && (
-            <>
-              <label className="flex items-start gap-2.5 mb-4 bg-panel border border-line rounded-card p-3.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={fieldMode}
-                  onChange={(e) => setFieldMode(e.target.checked)}
-                  className="mt-0.5"
-                />
-                <span className="text-sm text-ink">
-                  <span className="font-medium">Bugün doğrudan sahaya/montaja gidiyorum</span>
-                  <br />
-                  <span className="text-ink/50 text-xs">
-                    İşyerindeki QR kartına uğramanıza gerek yok, isminizi seçip not düşün.
-                  </span>
-                </span>
-              </label>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        {[
+          ["toplam", "Toplam personel", "all"],
+          ["icerde", "İçeride", "icerde"],
+          ["cikti", "Çıktı", "cikti"],
+          ["gelmedi", "Gelmedi", "gelmedi"],
+          ["gec", "Geç kalan", "gec"],
+          ["erken", "Erken çıkan", "erken"],
+        ].map(([key, label, f]) => (
+          <button
+            key={key}
+            onClick={() => setFilter(f)}
+            className={`text-left rounded-card border p-3 transition ${
+              filter === f ? "border-brand bg-brand-light" : "border-line bg-panel hover:border-brand/40"
+            }`}
+          >
+            <p className="text-2xl font-display font-semibold text-ink">{counts[key]}</p>
+            <p className="text-xs text-ink/60">{label}</p>
+          </button>
+        ))}
+      </div>
 
-              {fieldMode ? (
-                <div className="bg-panel border border-line rounded-card p-4 space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-ink/60 mb-1">İsminiz</label>
-                    <select
-                      value={selectedEmployee}
-                      onChange={(e) => setSelectedEmployee(e.target.value)}
-                      className="w-full rounded-lg border border-line px-3 py-2.5 text-sm bg-panel"
-                    >
-                      <option value="">Seçiniz…</option>
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>{emp.full_name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-ink/60 mb-1">
-                      Nerede olduğunuzu yazın
-                    </label>
-                    <input
-                      value={fieldNote}
-                      onChange={(e) => setFieldNote(e.target.value)}
-                      placeholder="Ör. Gümüştepe'de montajdaydım"
-                      className="w-full rounded-lg border border-line px-3 py-2.5 text-sm"
-                    />
-                  </div>
-                  <button
-                    onClick={submitFieldNote}
-                    disabled={status === "working"}
-                    className="w-full rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition disabled:opacity-50"
-                  >
-                    {status === "working" ? "Kaydediliyor…" : "Notu kaydet"}
-                  </button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <QRScanner onScan={handleScan} onError={(m) => { setErrorMsg(m); setStatus("error"); }} paused={status === "working"} />
-                  {status === "working" && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-card">
-                      <span className="text-white font-medium text-sm">Kaydediliyor…</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
+      <div className="bg-panel border border-line rounded-card overflow-hidden mb-6">
+        <table className="w-full text-sm">
+          <thead className="bg-canvas text-ink/50 text-xs uppercase tracking-wide">
+            <tr>
+              <th className="text-left px-4 py-3 font-medium">Personel</th>
+              <th className="text-left px-4 py-3 font-medium">Durum</th>
+              <th className="text-left px-4 py-3 font-medium">Giriş</th>
+              <th className="text-left px-4 py-3 font-medium">Çıkış</th>
+              <th className="text-left px-4 py-3 font-medium">Uyarı</th>
+              <th className="text-left px-4 py-3 font-medium">Süre</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-ink/40">Yükleniyor…</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-ink/40">Kayıt bulunamadı.</td></tr>
+            ) : (
+              filtered.map((r) => (
+                <tr key={r.employee_id} className="border-t border-line">
+                  <td className="px-4 py-3 font-medium text-ink">{r.full_name}</td>
+                  <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                  <td className="px-4 py-3 font-mono">{fmtTime(r.check_in)}</td>
+                  <td className="px-4 py-3 font-mono">{fmtTime(r.check_out)}</td>
+                  <td className="px-4 py-3">
+                    {r.is_late && <span className="text-danger text-xs font-medium mr-2">Geç</span>}
+                    {r.is_early_leave && <span className="text-danger text-xs font-medium">Erken çıkış</span>}
+                  </td>
+                  <td className="px-4 py-3 text-ink/60">
+                    {r.work_duration_min != null
+                      ? `${Math.floor(r.work_duration_min / 60)}sa ${r.work_duration_min % 60}dk`
+                      : "—"}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
-          {status === "result" && result && result.field && (
-            <div className="bg-panel border border-line rounded-card p-6 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-light">
-                <span className="text-2xl">📍</span>
-              </div>
-              <h2 className="font-display text-xl font-semibold text-ink mb-1">
-                {result.employee_name}
-              </h2>
-              <p className="text-sm font-medium mb-3">Saha notu kaydedildi</p>
-              <p className="text-ink/70 text-sm mb-1">
-                {new Date(result.work_date).toLocaleDateString("tr-TR", { timeZone: "Europe/Istanbul" })}
-              </p>
-              <p className="text-ink text-sm bg-canvas rounded-lg px-3 py-2 mb-1">
-                "{result.note}"
-              </p>
-              <button
-                onClick={reset}
-                className="mt-5 w-full rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition"
-              >
-                Tamam
-              </button>
-            </div>
-          )}
-
-          {status === "result" && result && !result.field && (
-            <div className="bg-panel border border-line rounded-card p-6 text-center">
-              <div
-                className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
-                  result.log_type === "in" ? "bg-brand-light" : "bg-amber-light"
-                }`}
-              >
-                <span className="text-2xl">{result.log_type === "in" ? "→" : "←"}</span>
-              </div>
-              <h2 className="font-display text-xl font-semibold text-ink mb-1">
-                {result.employee_name}
-              </h2>
-              <p className="text-sm font-medium mb-3">
-                {result.log_type === "in" ? "Giriş kaydedildi" : "Çıkış kaydedildi"}
-              </p>
-              <p className="text-3xl font-mono font-semibold text-ink mb-3">
-                {new Date(result.logged_at).toLocaleTimeString("tr-TR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  timeZone: "Europe/Istanbul",
-                })}
-              </p>
-
-              {result.is_late && (
-                <p className="text-danger text-sm font-medium mb-1">⚠ Geç kalındı</p>
-              )}
-              {result.is_early_leave && (
-                <p className="text-danger text-sm font-medium mb-1">⚠ Erken çıkış</p>
-              )}
-              {result.work_duration_min != null && (
-                <p className="text-ink/60 text-sm">
-                  Bugünkü çalışma süresi: {Math.floor(result.work_duration_min / 60)} sa{" "}
-                  {result.work_duration_min % 60} dk
-                </p>
-              )}
-
-              <button
-                onClick={reset}
-                className="mt-5 w-full rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition"
-              >
-                Tamam
-              </button>
-            </div>
-          )}
-
-          {status === "error" && (
-            <div className="bg-panel border border-danger/30 rounded-card p-6 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-danger/10">
-                <span className="text-2xl text-danger">✕</span>
-              </div>
-              <p className="text-ink font-medium mb-4">{errorMsg}</p>
-              <button
-                onClick={reset}
-                className="w-full rounded-full bg-ink text-white font-medium py-3 active:scale-[0.98] transition"
-              >
-                Tekrar dene
-              </button>
-            </div>
-          )}
-        </div>
-
-        <a href="/admin" className="mt-10 text-xs text-ink/40 underline">
-          Yönetici girişi
-        </a>
-      </main>
-    </>
+      <h2 className="font-display text-lg font-semibold text-ink mb-3">Saha / Montaj Notları</h2>
+      <div className="bg-panel border border-line rounded-card overflow-hidden">
+        {notes.length === 0 ? (
+          <p className="px-4 py-6 text-center text-ink/40 text-sm">Bu tarih için saha notu yok.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {notes.map((n) => (
+              <li key={n.id} className="px-4 py-3 text-sm">
+                <span className="font-medium text-ink">{n.full_name}</span>
+                <span className="text-ink/50"> — {fmtDate(n.work_date)} tarihinde: </span>
+                <span className="text-ink">"{n.note}"</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </AdminLayout>
   );
 }
