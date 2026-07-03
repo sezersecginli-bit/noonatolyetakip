@@ -28,17 +28,31 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
 
+  const [loadError, setLoadError] = useState("");
+
   const load = async () => {
     setLoading(true);
-    const [dashRes, notesRes] = await Promise.all([
-      authedFetch(`/api/dashboard?date=${date}`),
-      authedFetch(`/api/fieldnotes?date=${date}`),
-    ]);
-    const dashData = await dashRes.json();
-    const notesData = await notesRes.json();
-    setRows(dashData.summary || []);
-    setNotes(notesData.notes || []);
-    setLoading(false);
+    setLoadError("");
+    try {
+      const [dashRes, notesRes] = await Promise.all([
+        authedFetch(`/api/dashboard?date=${date}`),
+        authedFetch(`/api/fieldnotes?date=${date}`),
+      ]);
+      const dashData = await dashRes.json();
+      const notesData = await notesRes.json();
+
+      if (!dashRes.ok) throw new Error(dashData.error || "Panel verisi alınamadı.");
+      if (!notesRes.ok) throw new Error(notesData.error || "Saha notları alınamadı.");
+
+      setRows(dashData.summary || []);
+      setNotes(notesData.notes || []);
+    } catch (err) {
+      setLoadError(err.message || "Veri alınırken bir hata oluştu.");
+      setRows([]);
+      setNotes([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -101,6 +115,11 @@ export default function DashboardPage() {
       </div>
 
       <div className="bg-panel border border-line rounded-card overflow-hidden mb-6">
+        {loadError && (
+          <p className="px-4 py-3 bg-danger/10 text-danger text-sm border-b border-danger/20">
+            {loadError} — sayfayı yenilemeyi deneyin.
+          </p>
+        )}
         <table className="w-full text-sm">
           <thead className="bg-canvas text-ink/50 text-xs uppercase tracking-wide">
             <tr>
