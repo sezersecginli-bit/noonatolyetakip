@@ -44,7 +44,7 @@ export default function ReportsPage() {
   };
 
   const exportCsv = () => {
-    const header = ["Ad Soyad", "Tarih", "Tip", "Saat", "Geç", "Erken Çıkış", "Süre (dk)"];
+    const header = ["Ad Soyad", "Tarih", "Tip", "Konum", "Saha Notu", "Saat", "Geç", "Erken Çıkış", "Süre (dk)"];
     const lines = [header.join(";")];
     for (const r of rows) {
       lines.push(
@@ -52,6 +52,8 @@ export default function ReportsPage() {
           r.full_name,
           r.work_date,
           r.log_type,
+          r.location,
+          r.site_label,
           new Date(r.logged_at).toLocaleTimeString("tr-TR", { timeZone: "Europe/Istanbul" }),
           r.is_late ? "Evet" : "Hayır",
           r.is_early_leave ? "Evet" : "Hayır",
@@ -77,6 +79,8 @@ export default function ReportsPage() {
         Departman: r.department,
         Tarih: r.work_date,
         Tip: r.log_type,
+        Konum: r.location,
+        "Saha Notu": r.site_label,
         Saat: new Date(r.logged_at).toLocaleTimeString("tr-TR", { timeZone: "Europe/Istanbul" }),
         Geç: r.is_late ? "Evet" : "Hayır",
         "Erken Çıkış": r.is_early_leave ? "Evet" : "Hayır",
@@ -176,21 +180,26 @@ export default function ReportsPage() {
                   <th className="text-left px-4 py-3 font-medium">Ad Soyad</th>
                   <th className="text-left px-4 py-3 font-medium">Tarih</th>
                   <th className="text-left px-4 py-3 font-medium">Tip</th>
+                  <th className="text-left px-4 py-3 font-medium">Konum</th>
                   <th className="text-left px-4 py-3 font-medium">Saat</th>
                   <th className="text-left px-4 py-3 font-medium">Uyarı</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-ink/40">Yükleniyor…</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-ink/40">Yükleniyor…</td></tr>
                 ) : rows.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-ink/40">Kayıt yok.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-ink/40">Kayıt yok.</td></tr>
                 ) : (
                   rows.map((r, i) => (
                     <tr key={i} className="border-t border-line">
                       <td className="px-4 py-3 font-medium text-ink">{r.full_name}</td>
                       <td className="px-4 py-3">{r.work_date}</td>
                       <td className="px-4 py-3">{r.log_type}</td>
+                      <td className="px-4 py-3">
+                        {r.location}
+                        {r.site_label && <span className="text-ink/50"> ({r.site_label})</span>}
+                      </td>
                       <td className="px-4 py-3 font-mono">
                         {new Date(r.logged_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" })}
                       </td>

@@ -1,6 +1,9 @@
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 import { requireAdmin } from "../../lib/requireAdmin";
 
+// Not: Türkiye 2016'dan beri yaz saati uygulamıyor, sabit UTC+3.
+// Bu yüzden "YYYY-MM-DDTHH:MM:00+03:00" formatı güvenle kullanılabilir.
+
 function timeStrToMinutes(t) {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
@@ -38,6 +41,7 @@ export default async function handler(req, res) {
 
     const logged_at = `${work_date}T${time}:00+03:00`;
 
+    // Aynı gün için mevcut kayıtları çek (sıralamayı ve eşleşmeyi doğru yapmak için)
     const { data: dayLogs, error: dayErr } = await supabaseAdmin
       .from("attendance_logs")
       .select("*")
@@ -46,6 +50,7 @@ export default async function handler(req, res) {
       .order("logged_at", { ascending: true });
     if (dayErr) throw dayErr;
 
+    // Yeni kaydın kronolojik olarak nereye düştüğünü bul, hemen öncesindeki kaydı al
     const before = dayLogs.filter((l) => new Date(l.logged_at) < new Date(logged_at));
     const prev = before.length ? before[before.length - 1] : null;
 

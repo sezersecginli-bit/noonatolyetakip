@@ -34,6 +34,8 @@ export default async function handler(req, res) {
       is_late: r.is_late,
       is_early_leave: r.is_early_leave,
       work_duration_min: r.work_duration_min,
+      location: r.location === "saha" ? "Şantiye" : "Atölye",
+      site_label: r.site_label || "",
     }));
 
     // Çalışan bazında toplam süre özeti

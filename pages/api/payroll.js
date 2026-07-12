@@ -6,8 +6,9 @@ function timeStrToMinutes(t) {
   return h * 60 + m;
 }
 
+// work_date "YYYY-MM-DD" -> hafta sonu mu? (Cumartesi=6, Pazar=0)
 function isWeekend(dateStr) {
-  const d = new Date(dateStr + "T12:00:00Z");
+  const d = new Date(dateStr + "T12:00:00Z"); // öğlen kullanarak gün kaymasını önlüyoruz
   const day = d.getUTCDay();
   return day === 0 || day === 6;
 }

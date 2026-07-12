@@ -10,7 +10,7 @@ export default function ScanPage() {
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [fieldMode, setFieldMode] = useState(false);
-  const [fieldNote, setFieldNote] = useState("");
+  const [siteLabel, setSiteLabel] = useState("");
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const busyRef = useRef(false);
@@ -64,31 +64,26 @@ export default function ScanPage() {
     }
   }, []);
 
-  const submitFieldNote = async () => {
+  const submitSiteCheck = async () => {
     if (!selectedEmployee) {
       setErrorMsg("Lütfen isminizi seçin.");
-      setStatus("error");
-      return;
-    }
-    if (!fieldNote.trim()) {
-      setErrorMsg("Lütfen nerede olduğunuzu yazın.");
       setStatus("error");
       return;
     }
     setStatus("working");
     setErrorMsg("");
     try {
-      const res = await fetch("/api/fieldnote", {
+      const res = await fetch("/api/sitecheckin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employee_id: selectedEmployee, note: fieldNote.trim() }),
+        body: JSON.stringify({ employee_id: selectedEmployee, site_label: siteLabel.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
         setErrorMsg(data.error || "İşlem başarısız.");
         setStatus("error");
       } else {
-        setResult({ field: true, ...data });
+        setResult({ site: true, ...data });
         setStatus("result");
       }
     } catch (err) {
@@ -101,7 +96,7 @@ export default function ScanPage() {
     setStatus("idle");
     setResult(null);
     setErrorMsg("");
-    setFieldNote("");
+    setSiteLabel("");
     setSelectedEmployee("");
   };
 
@@ -117,15 +112,16 @@ export default function ScanPage() {
           <header className="mb-6 text-center">
             <p className="font-mono text-xs tracking-wider text-brand uppercase mb-1">PDKS</p>
             <h1 className="font-display text-2xl font-semibold text-ink">
-              {fieldMode ? "Saha / montaj notu" : "QR kodunu okutun"}
+              {fieldMode ? "Şantiye giriş / çıkış" : "QR kodunu okutun"}
             </h1>
             <p className="text-sm text-ink/60 mt-1">
               {fieldMode
-                ? "İşyerine uğramadan direkt sahaya gidenler için."
+                ? "Giriş ve çıkış otomatik algılanır, aynı normal QR gibi."
                 : "Giriş ve çıkış otomatik olarak algılanır."}
             </p>
           </header>
-{(status === "idle" || status === "working") && (
+
+          {(status === "idle" || status === "working") && (
             <>
               <label className="flex items-start gap-2.5 mb-4 bg-panel border border-line rounded-card p-3.5 cursor-pointer">
                 <input
@@ -135,10 +131,10 @@ export default function ScanPage() {
                   className="mt-0.5"
                 />
                 <span className="text-sm text-ink">
-                  <span className="font-medium">Bugün doğrudan sahaya/montaja gidiyorum</span>
+                  <span className="font-medium">Bugün şantiyedeyim</span>
                   <br />
                   <span className="text-ink/50 text-xs">
-                    İşyerindeki QR kartına uğramanıza gerek yok, isminizi seçip not düşün.
+                    İşyerindeki QR kartına uğramanıza gerek yok, isminizi seçip giriş/çıkış yapın.
                   </span>
                 </span>
               </label>
@@ -160,21 +156,21 @@ export default function ScanPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-ink/60 mb-1">
-                      Nerede olduğunuzu yazın
+                      Şantiye adı (opsiyonel)
                     </label>
                     <input
-                      value={fieldNote}
-                      onChange={(e) => setFieldNote(e.target.value)}
-                      placeholder="Ör. Gümüştepe'de montajdaydım"
+                      value={siteLabel}
+                      onChange={(e) => setSiteLabel(e.target.value)}
+                      placeholder="Ör. Gümüştepe"
                       className="w-full rounded-lg border border-line px-3 py-2.5 text-sm"
                     />
                   </div>
                   <button
-                    onClick={submitFieldNote}
+                    onClick={submitSiteCheck}
                     disabled={status === "working"}
                     className="w-full rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition disabled:opacity-50"
                   >
-                    {status === "working" ? "Kaydediliyor…" : "Notu kaydet"}
+                    {status === "working" ? "Kaydediliyor…" : "Kaydet (Giriş/Çıkış otomatik)"}
                   </button>
                 </div>
               ) : (
@@ -190,44 +186,28 @@ export default function ScanPage() {
             </>
           )}
 
-          {status === "result" && result && result.field && (
-            <div className="bg-panel border border-line rounded-card p-6 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-light">
-                <span className="text-2xl">📍</span>
-              </div>
-              <h2 className="font-display text-xl font-semibold text-ink mb-1">
-                {result.employee_name}
-              </h2>
-              <p className="text-sm font-medium mb-3">Saha notu kaydedildi</p>
-              <p className="text-ink/70 text-sm mb-1">
-                {new Date(result.work_date).toLocaleDateString("tr-TR", { timeZone: "Europe/Istanbul" })}
-              </p>
-              <p className="text-ink text-sm bg-canvas rounded-lg px-3 py-2 mb-1">
-                "{result.note}"
-              </p>
-              <button
-                onClick={reset}
-                className="mt-5 w-full rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition"
-              >
-                Tamam
-              </button>
-            </div>
-          )}
-
-          {status === "result" && result && !result.field && (
+          {status === "result" && result && (
             <div className="bg-panel border border-line rounded-card p-6 text-center">
               <div
                 className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
                   result.log_type === "in" ? "bg-brand-light" : "bg-amber-light"
                 }`}
               >
-                <span className="text-2xl">{result.log_type === "in" ? "→" : "←"}</span>
+                <span className="text-2xl">
+                  {result.site ? "📍" : result.log_type === "in" ? "→" : "←"}
+                </span>
               </div>
               <h2 className="font-display text-xl font-semibold text-ink mb-1">
                 {result.employee_name}
               </h2>
               <p className="text-sm font-medium mb-3">
-                {result.log_type === "in" ? "Giriş kaydedildi" : "Çıkış kaydedildi"}
+                {result.site
+                  ? result.log_type === "in"
+                    ? `Şantiyeye giriş kaydedildi${result.site_label ? " — " + result.site_label : ""}`
+                    : `Şantiyeden çıkış kaydedildi${result.site_label ? " — " + result.site_label : ""}`
+                  : result.log_type === "in"
+                  ? "Giriş kaydedildi"
+                  : "Çıkış kaydedildi"}
               </p>
               <p className="text-3xl font-mono font-semibold text-ink mb-3">
                 {new Date(result.logged_at).toLocaleTimeString("tr-TR", {

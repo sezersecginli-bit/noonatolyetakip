@@ -34,6 +34,8 @@ export default async function handler(req, res) {
       const firstIn = empLogs.find((l) => l.log_type === "in");
       const lastOut = [...empLogs].reverse().find((l) => l.log_type === "out");
       const status = empLogs.length === 0 ? "gelmedi" : lastOut ? "cikti" : "icerde";
+      const hasSaha = empLogs.some((l) => l.location === "saha");
+      const sahaLabel = empLogs.find((l) => l.location === "saha" && l.site_label)?.site_label || null;
 
       return {
         employee_id: emp.id,
@@ -45,6 +47,8 @@ export default async function handler(req, res) {
         is_late: firstIn?.is_late || false,
         is_early_leave: lastOut?.is_early_leave || false,
         work_duration_min: lastOut?.work_duration_min || null,
+        location: hasSaha ? "saha" : "atolye",
+        site_label: sahaLabel,
         logs: empLogs,
       };
     });

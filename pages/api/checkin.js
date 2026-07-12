@@ -143,6 +143,7 @@ export default async function handler(req, res) {
         lng: lng ?? null,
         distance_ok,
         work_duration_min,
+        location: "atolye",
       })
       .select()
       .single();

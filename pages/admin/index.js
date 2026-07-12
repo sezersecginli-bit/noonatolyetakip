@@ -158,7 +158,7 @@ export default function DashboardPage() {
       {manualOpen && (
         <div className="bg-panel border border-brand/30 rounded-card p-4 mb-6">
           <p className="font-medium text-ink text-sm mb-3">
-        Manuel giriş/çıkış ekle — {fmtDate(date)}
+            Manuel giriş/çıkış ekle — {fmtDate(date)}
           </p>
           <div className="flex flex-wrap gap-3 items-end">
             <div className="min-w-[180px]">
@@ -247,6 +247,7 @@ export default function DashboardPage() {
               <th className="text-left px-4 py-3 font-medium">Durum</th>
               <th className="text-left px-4 py-3 font-medium">Giriş</th>
               <th className="text-left px-4 py-3 font-medium">Çıkış</th>
+              <th className="text-left px-4 py-3 font-medium">Konum</th>
               <th className="text-left px-4 py-3 font-medium">Uyarı</th>
               <th className="text-left px-4 py-3 font-medium">Süre</th>
               <th className="text-left px-4 py-3 font-medium"></th>
@@ -254,9 +255,9 @@ export default function DashboardPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-ink/40">Yükleniyor…</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-ink/40">Yükleniyor…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-ink/40">Kayıt bulunamadı.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-ink/40">Kayıt bulunamadı.</td></tr>
             ) : (
               filtered.map((r) => (
                 <tr key={r.employee_id} className="border-t border-line">
@@ -264,6 +265,15 @@ export default function DashboardPage() {
                   <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                   <td className="px-4 py-3 font-mono">{fmtTime(r.check_in)}</td>
                   <td className="px-4 py-3 font-mono">{fmtTime(r.check_out)}</td>
+                  <td className="px-4 py-3 text-xs">
+                    {r.status === "gelmedi" ? (
+                      "—"
+                    ) : r.location === "saha" ? (
+                      <span className="text-amber font-medium">Şantiye{r.site_label ? ` (${r.site_label})` : ""}</span>
+                    ) : (
+                      <span className="text-ink/50">Atölye</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     {r.is_late && <span className="text-danger text-xs font-medium mr-2">Geç</span>}
                     {r.is_early_leave && <span className="text-danger text-xs font-medium">Erken çıkış</span>}
