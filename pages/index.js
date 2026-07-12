@@ -64,7 +64,7 @@ export default function ScanPage() {
     }
   }, []);
 
-  const submitSiteCheck = async () => {
+  const submitSiteCheck = async (forcedType) => {
     if (!selectedEmployee) {
       setErrorMsg("Lütfen isminizi seçin.");
       setStatus("error");
@@ -76,7 +76,7 @@ export default function ScanPage() {
       const res = await fetch("/api/sitecheckin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employee_id: selectedEmployee, site_label: siteLabel.trim() }),
+        body: JSON.stringify({ employee_id: selectedEmployee, site_label: siteLabel.trim(), forced_type: forcedType }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -116,7 +116,7 @@ export default function ScanPage() {
             </h1>
             <p className="text-sm text-ink/60 mt-1">
               {fieldMode
-                ? "Giriş ve çıkış otomatik algılanır, aynı normal QR gibi."
+                ? "Şantiyeye vardığınızda Giriş, ayrılırken Çıkış yapın."
                 : "Giriş ve çıkış otomatik olarak algılanır."}
             </p>
           </header>
@@ -163,15 +163,25 @@ export default function ScanPage() {
                       onChange={(e) => setSiteLabel(e.target.value)}
                       placeholder="Ör. Gümüştepe"
                       className="w-full rounded-lg border border-line px-3 py-2.5 text-sm"
+           className="w-full rounded-lg border border-line px-3 py-2.5 text-sm"
                     />
                   </div>
-                  <button
-                    onClick={submitSiteCheck}
-                    disabled={status === "working"}
-                    className="w-full rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition disabled:opacity-50"
-                  >
-                    {status === "working" ? "Kaydediliyor…" : "Kaydet (Giriş/Çıkış otomatik)"}
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => submitSiteCheck("in")}
+                      disabled={status === "working"}
+                      className="flex-1 rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition disabled:opacity-50"
+                    >
+                      {status === "working" ? "…" : "Giriş yap"}
+                    </button>
+                    <button
+                      onClick={() => submitSiteCheck("out")}
+                      disabled={status === "working"}
+                      className="flex-1 rounded-full bg-amber text-white font-medium py-3 active:scale-[0.98] transition disabled:opacity-50"
+                    >
+                      {status === "working" ? "…" : "Çıkış yap"}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="relative">
