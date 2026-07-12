@@ -135,8 +135,15 @@ export default function ScanPage() {
 
           {(status === "idle" || status === "working") && (
             <>
-              <label className="flex items-start gap-2.5 mb-4 bg-panel border
-            <span className="font-medium">Bugün şantiyedeyim</span>
+              <label className="flex items-start gap-2.5 mb-4 bg-panel border border-line rounded-card p-3.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={fieldMode}
+                  onChange={(e) => setFieldMode(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm text-ink">
+                  <span className="font-medium">Bugün şantiyedeyim</span>
                   <br />
                   <span className="text-ink/50 text-xs">
                     İşyerindeki QR kartına uğramanıza gerek yok, isminizi seçip giriş/çıkış yapın.
@@ -235,3 +242,44 @@ export default function ScanPage() {
                 <p className="text-danger text-sm font-medium mb-1">⚠ Geç kalındı</p>
               )}
               {result.is_early_leave && (
+                <p className="text-danger text-sm font-medium mb-1">⚠ Erken çıkış</p>
+              )}
+              {result.work_duration_min != null && (
+                <p className="text-ink/60 text-sm">
+                  Bugünkü çalışma süresi: {Math.floor(result.work_duration_min / 60)} sa{" "}
+                  {result.work_duration_min % 60} dk
+                </p>
+              )}
+
+              <button
+                onClick={reset}
+                className="mt-5 w-full rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition"
+              >
+                Tamam
+              </button>
+            </div>
+          )}
+
+          {status === "error" && (
+            <div className="bg-panel border border-danger/30 rounded-card p-6 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-danger/10">
+                <span className="text-2xl text-danger">✕</span>
+              </div>
+              <p className="text-ink font-medium mb-4">{errorMsg}</p>
+              <button
+                onClick={reset}
+                className="w-full rounded-full bg-ink text-white font-medium py-3 active:scale-[0.98] transition"
+              >
+                Tekrar dene
+              </button>
+            </div>
+          )}
+        </div>
+
+        <a href="/admin" className="mt-10 text-xs text-ink/40 underline">
+          Yönetici girişi
+        </a>
+      </main>
+    </>
+  );
+}
