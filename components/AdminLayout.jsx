@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabaseClient";
 const NAV = [
   { href: "/admin", label: "Panel" },
   { href: "/admin/employees", label: "Personel" },
+  { href: "/admin/leaves", label: "İzinler" },
   { href: "/admin/reports", label: "Raporlar" },
   { href: "/admin/payroll", label: "Bordro" },
   { href: "/admin/settings", label: "Ayarlar" },
