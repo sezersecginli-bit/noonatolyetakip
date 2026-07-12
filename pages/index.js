@@ -5,6 +5,18 @@ import { getCurrentPosition } from "../lib/geo";
 
 const QRScanner = dynamic(() => import("../components/QRScanner"), { ssr: false });
 
+function greetingFor(iso) {
+  const hourStr = new Date(iso).toLocaleString("en-GB", {
+    timeZone: "Europe/Istanbul",
+    hour: "2-digit",
+    hour12: false,
+  });
+  const h = parseInt(hourStr, 10);
+  if (h >= 5 && h < 12) return "Günaydın";
+  if (h >= 12 && h < 18) return "İyi günler";
+  return "İyi akşamlar";
+}
+
 export default function ScanPage() {
   const [status, setStatus] = useState("idle");
   const [result, setResult] = useState(null);
@@ -161,113 +173,4 @@ export default function ScanPage() {
                     <input
                       value={siteLabel}
                       onChange={(e) => setSiteLabel(e.target.value)}
-                      placeholder="Ör. Gümüştepe"
-                      className="w-full rounded-lg border border-line px-3 py-2.5 text-sm"
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => submitSiteCheck("in")}
-                      disabled={status === "working"}
-                      className="flex-1 rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition disabled:opacity-50"
-                    >
-                      {status === "working" ? "…" : "Giriş yap"}
-                    </button>
-                    <button
-                      onClick={() => submitSiteCheck("out")}
-                      disabled={status === "working"}
-                      className="flex-1 rounded-full bg-amber text-white font-medium py-3 active:scale-[0.98] transition disabled:opacity-50"
-                    >
-                      {status === "working" ? "…" : "Çıkış yap"}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="relative">
-                  <QRScanner onScan={handleScan} onError={(m) => { setErrorMsg(m); setStatus("error"); }} paused={status === "working"} />
-                  {status === "working" && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-card">
-                      <span className="text-white font-medium text-sm">Kaydediliyor…</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-
-          {status === "result" && result && (
-            <div className="bg-panel border border-line rounded-card p-6 text-center">
-              <div
-                className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
-                  result.log_type === "in" ? "bg-brand-light" : "bg-amber-light"
-                }`}
-              >
-                <span className="text-2xl">
-                  {result.site ? "📍" : result.log_type === "in" ? "→" : "←"}
-                </span>
-              </div>
-              <h2 className="font-display text-xl font-semibold text-ink mb-1">
-                {result.employee_name}
-              </h2>
-              <p className="text-sm font-medium mb-3">
-                {result.site
-                  ? result.log_type === "in"
-                    ? `Şantiyeye giriş kaydedildi${result.site_label ? " — " + result.site_label : ""}`
-                    : `Şantiyeden çıkış kaydedildi${result.site_label ? " — " + result.site_label : ""}`
-                  : result.log_type === "in"
-                  ? "Giriş kaydedildi"
-                  : "Çıkış kaydedildi"}
-              </p>
-              <p className="text-3xl font-mono font-semibold text-ink mb-3">
-                {new Date(result.logged_at).toLocaleTimeString("tr-TR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  timeZone: "Europe/Istanbul",
-                })}
-              </p>
-
-              {result.is_late && (
-                <p className="text-danger text-sm font-medium mb-1">⚠ Geç kalındı</p>
-              )}
-              {result.is_early_leave && (
-                <p className="text-danger text-sm font-medium mb-1">⚠ Erken çıkış</p>
-              )}
-              {result.work_duration_min != null && (
-                <p className="text-ink/60 text-sm">
-                  Bugünkü çalışma süresi: {Math.floor(result.work_duration_min / 60)} sa{" "}
-                  {result.work_duration_min % 60} dk
-                </p>
-              )}
-
-              <button
-                onClick={reset}
-                className="mt-5 w-full rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition"
-              >
-                Tamam
-              </button>
-            </div>
-          )}
-
-          {status === "error" && (
-            <div className="bg-panel border border-danger/30 rounded-card p-6 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-danger/10">
-                <span className="text-2xl text-danger">✕</span>
-              </div>
-              <p className="text-ink font-medium mb-4">{errorMsg}</p>
-              <button
-                onClick={reset}
-                className="w-full rounded-full bg-ink text-white font-medium py-3 active:scale-[0.98] transition"
-              >
-                Tekrar dene
-              </button>
-            </div>
-          )}
-        </div>
-
-        <a href="/admin" className="mt-10 text-xs text-ink/40 underline">
-          Yönetici girişi
-        </a>
-      </main>
-    </>
-  );
-}
+           
