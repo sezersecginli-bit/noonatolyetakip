@@ -25,9 +25,12 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { employee_id, site_label } = req.body;
+    const { employee_id, site_label, forced_type } = req.body;
     if (!employee_id) {
       return res.status(400).json({ error: "Personel belirtilmedi." });
+    }
+    if (forced_type && forced_type !== "in" && forced_type !== "out") {
+      return res.status(400).json({ error: "Geçersiz kayıt tipi." });
     }
 
     const { data: employee, error: empErr } = await supabaseAdmin
@@ -58,7 +61,17 @@ export default async function handler(req, res) {
       .maybeSingle();
     if (lastErr) throw lastErr;
 
-    const log_type = !lastLog || lastLog.log_type === "out" ? "in" : "out";
+    const log_type = forced_type || (!lastLog || lastLog.log_type === "out" ? "in" : "out");
+
+    if (lastLog && lastLog.log_type === log_type) {
+      return res.status(409).json({
+        error:
+          log_type === "in"
+            ? "Zaten şantiyeye giriş yapılmış. Çıkış yapmak için 'Çıkış' butonunu kullanın."
+            : "Zaten şantiyeden çıkış yapılmış. Giriş yapmak için 'Giriş' butonunu kullanın.",
+        employee_name: employee.full_name,
+      });
+    }
 
     const nowMinutes = nowIstanbulMinutes();
     let is_late = false;
