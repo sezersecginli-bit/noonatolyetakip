@@ -163,7 +163,6 @@ export default function ScanPage() {
                       onChange={(e) => setSiteLabel(e.target.value)}
                       placeholder="Ör. Gümüştepe"
                       className="w-full rounded-lg border border-line px-3 py-2.5 text-sm"
-           className="w-full rounded-lg border border-line px-3 py-2.5 text-sm"
                     />
                   </div>
                   <div className="flex gap-3">

@@ -51,6 +51,15 @@ export default async function handler(req, res) {
     const { data: logs, error: logErr } = await logQuery;
     if (logErr) throw logErr;
 
+    const { data: leaves, error: leaveErr } = await supabaseAdmin
+      .from("leave_days")
+      .select("*")
+      .gte("work_date", start)
+      .lte("work_date", end);
+    if (leaveErr) throw leaveErr;
+
+    const companyLeaves = leaves.filter((l) => l.employee_id === null);
+
     const result = employees.map((emp) => {
       const empLogs = logs.filter((l) => l.employee_id === emp.id);
       const dayMap = {};
@@ -91,8 +100,40 @@ export default async function handler(req, res) {
           overtime_pay: Math.round(overtimePay * 100) / 100,
           deduction: Math.round(deduction * 100) / 100,
           total_pay: total,
+          is_leave: false,
         };
       });
+
+      // İzinli günleri ekle (bu gün için zaten bir giriş/çıkış kaydı yoksa)
+      const personalLeaves = leaves.filter((l) => l.employee_id === emp.id);
+      const allLeavesForEmp = [...personalLeaves, ...companyLeaves];
+      const seenDates = new Set(days.map((d) => d.work_date));
+      const uniqueLeaveDates = new Map();
+      for (const l of allLeavesForEmp) {
+        if (!seenDates.has(l.work_date) && !uniqueLeaveDates.has(l.work_date)) {
+          uniqueLeaveDates.set(l.work_date, l);
+        }
+      }
+
+      for (const [work_date, leave] of uniqueLeaveDates) {
+        const pay = leave.paid ? emp.daily_wage : 0;
+        days.push({
+          work_date,
+          weekend: isWeekend(work_date),
+          worked_hours: 0,
+          overtime_hours: 0,
+          is_late: false,
+          is_early_leave: false,
+          base_pay: Math.round(pay * 100) / 100,
+          overtime_pay: 0,
+          deduction: 0,
+          total_pay: Math.round(pay * 100) / 100,
+          is_leave: true,
+          leave_type: leave.leave_type,
+          leave_paid: leave.paid,
+        });
+      }
+      days.sort((a, b) => (a.work_date < b.work_date ? -1 : 1));
 
       const totalPay = Math.round(days.reduce((s, d) => s + d.total_pay, 0) * 100) / 100;
 
@@ -104,7 +145,8 @@ export default async function handler(req, res) {
         early_leave_deduction_hourly: emp.early_leave_deduction_hourly,
         weekend_multiplier: emp.weekend_multiplier,
         days,
-        days_worked: days.length,
+        days_worked: days.filter((d) => !d.is_leave).length,
+        days_leave: days.filter((d) => d.is_leave).length,
         total_pay: totalPay,
       };
     });

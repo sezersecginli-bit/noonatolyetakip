@@ -127,6 +127,7 @@ export default function DashboardPage() {
     icerde: rows.filter((r) => r.status === "icerde").length,
     cikti: rows.filter((r) => r.status === "cikti").length,
     gelmedi: rows.filter((r) => r.status === "gelmedi").length,
+    izinli: rows.filter((r) => r.status === "izinli").length,
     gec: rows.filter((r) => r.is_late).length,
     erken: rows.filter((r) => r.is_early_leave).length,
   };
@@ -212,12 +213,13 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-6">
         {[
           ["toplam", "Toplam personel", "all"],
           ["icerde", "İçeride", "icerde"],
           ["cikti", "Çıktı", "cikti"],
           ["gelmedi", "Gelmedi", "gelmedi"],
+          ["izinli", "İzinli", "izinli"],
           ["gec", "Geç kalan", "gec"],
           ["erken", "Erken çıkan", "erken"],
         ].map(([key, label, f]) => (
