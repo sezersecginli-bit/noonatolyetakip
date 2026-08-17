@@ -4,10 +4,8 @@ import { requireAdmin } from "../../lib/requireAdmin";
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
-      // Ayarların "geo_required" ve saatleri okunması scan sayfası için
-      // de gereklidir; bu yüzden GET herkese açık ama sadece güvenli
-      // alanları döndürür (koordinatları da döndürüyoruz çünkü mesafe
-      // hesaplaması istemci tarafında gösterilebilir; hassas değildir).
+      // GET herkese açık: scan sayfası da (checkin/sitecheckin API'leri sunucu
+      // tarafında zaten kendisi okuyor) ve admin ayarlar sayfası kullanır.
       const { data, error } = await supabaseAdmin
         .from("work_settings")
         .select("*")
@@ -30,6 +28,7 @@ export default async function handler(req, res) {
         workplace_lat,
         workplace_lng,
         geo_radius_meters,
+        min_scan_gap_seconds,
       } = req.body;
 
       const update = {};
@@ -41,6 +40,7 @@ export default async function handler(req, res) {
       if (workplace_lat !== undefined) update.workplace_lat = workplace_lat;
       if (workplace_lng !== undefined) update.workplace_lng = workplace_lng;
       if (geo_radius_meters !== undefined) update.geo_radius_meters = geo_radius_meters;
+      if (min_scan_gap_seconds !== undefined) update.min_scan_gap_seconds = min_scan_gap_seconds;
 
       const { data, error } = await supabaseAdmin
         .from("work_settings")

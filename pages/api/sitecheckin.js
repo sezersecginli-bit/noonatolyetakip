@@ -61,6 +61,18 @@ export default async function handler(req, res) {
       .maybeSingle();
     if (lastErr) throw lastErr;
 
+    // Yanlışlıkla art arda okutmayı engelle (zorla giriş/çıkış seçilse bile geçerli)
+    const minGap = settings.min_scan_gap_seconds ?? 120;
+    if (lastLog && minGap > 0) {
+      const secondsSinceLast = (Date.now() - new Date(lastLog.logged_at).getTime()) / 1000;
+      if (secondsSinceLast < minGap) {
+        return res.status(429).json({
+          error: `Az önce zaten bir işlem yapıldı (${Math.round(secondsSinceLast)} saniye önce). Yanlışlıkla art arda okutmuş olabilirsiniz — birkaç dakika sonra tekrar deneyin.`,
+          employee_name: employee.full_name,
+        });
+      }
+    }
+
     const log_type = forced_type || (!lastLog || lastLog.log_type === "out" ? "in" : "out");
 
     if (lastLog && lastLog.log_type === log_type) {

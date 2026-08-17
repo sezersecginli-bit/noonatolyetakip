@@ -93,6 +93,31 @@ export default function SettingsPage() {
         </section>
 
         <section className="bg-panel border border-line rounded-card p-5">
+          <h2 className="font-display font-semibold text-ink mb-4">Art Arda Okutma Koruması</h2>
+          <p className="text-xs text-ink/50 mb-4">
+            Bir çalışan yanlışlıkla art arda okutursa (kamera hatası, yanlış tıklama vb.)
+            sistem bu süre dolmadan yeni bir giriş/çıkış kaydı oluşturmaz. Bu, "hemen giriş
+            arkasından çıkış" gibi hatalı kayıtları önler.
+          </p>
+          <div className="max-w-[220px]">
+            <label className="block text-xs font-medium text-ink/60 mb-1">
+              Minimum bekleme süresi (saniye)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="10"
+              value={s.min_scan_gap_seconds ?? 120}
+              onChange={(e) => setS({ ...s, min_scan_gap_seconds: Number(e.target.value) })}
+              className="w-full rounded-lg border border-line px-3 py-2 text-sm"
+            />
+            <p className="text-xs text-ink/40 mt-1">
+              Örn. 120 = 2 dakika, 300 = 5 dakika. 0 girersen koruma tamamen kapanır.
+            </p>
+          </div>
+        </section>
+
+        <section className="bg-panel border border-line rounded-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-semibold text-ink">Konum Doğrulama (GPS)</h2>
             <label className="flex items-center gap-2 text-sm">
