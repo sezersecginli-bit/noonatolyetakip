@@ -22,10 +22,11 @@ function workDateFromIso(iso) {
 }
 
 export default function ScanPage() {
+  const [mode, setMode] = useState("checkin");
   const [status, setStatus] = useState("idle");
   const [result, setResult] = useState(null);
+  const [summary, setSummary] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [fieldMode, setFieldMode] = useState(false);
   const [siteLabel, setSiteLabel] = useState("");
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
@@ -37,13 +38,13 @@ export default function ScanPage() {
   const [reportSaving, setReportSaving] = useState(false);
 
   useEffect(() => {
-    if (fieldMode && employees.length === 0) {
+    if (mode === "field" && employees.length === 0) {
       fetch("/api/employees-public")
         .then((r) => r.json())
         .then((d) => setEmployees(d.employees || []))
         .catch(() => {});
     }
-  }, [fieldMode, employees.length]);
+  }, [mode, employees.length]);
 
   const handleScan = useCallback(async (qrText) => {
     if (busyRef.current) return;
@@ -52,6 +53,23 @@ export default function ScanPage() {
     setErrorMsg("");
 
     try {
+      if (mode === "summary") {
+        const res = await fetch("/api/mysummary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ qr_token: qrText }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setErrorMsg(data.error || "İşlem başarısız.");
+          setStatus("error");
+        } else {
+          setSummary(data);
+          setStatus("summary-result");
+        }
+        return;
+      }
+
       let lat = null,
         lng = null;
       try {
@@ -83,7 +101,7 @@ export default function ScanPage() {
         busyRef.current = false;
       }, 2500);
     }
-  }, []);
+  }, [mode]);
 
   const submitSiteCheck = async (forcedType) => {
     if (!selectedEmployee) {
@@ -128,7 +146,6 @@ export default function ScanPage() {
       });
       setReportSent(true);
     } catch {
-      // sessizce geç; en kötü ihtimalle çalışan admin'e sözlü söyler
       setReportSent(true);
     } finally {
       setReportSaving(false);
@@ -138,12 +155,18 @@ export default function ScanPage() {
   const reset = () => {
     setStatus("idle");
     setResult(null);
+    setSummary(null);
     setErrorMsg("");
     setSiteLabel("");
     setSelectedEmployee("");
     setReportOpen(false);
     setReportNote("");
     setReportSent(false);
+  };
+
+  const switchMode = (newMode) => {
+    reset();
+    setMode(newMode);
   };
 
   return (
@@ -158,34 +181,41 @@ export default function ScanPage() {
           <header className="mb-6 text-center">
             <p className="font-mono text-xs tracking-wider text-brand uppercase mb-1">PDKS</p>
             <h1 className="font-display text-2xl font-semibold text-ink">
-              {fieldMode ? "Şantiye giriş / çıkış" : "QR kodunu okutun"}
+              {mode === "field" ? "Şantiye giriş / çıkış" : mode === "summary" ? "Aylık özetim" : "QR kodunu okutun"}
             </h1>
             <p className="text-sm text-ink/60 mt-1">
-              {fieldMode
+              {mode === "field"
                 ? "Şantiyeye vardığınızda Giriş, ayrılırken Çıkış yapın."
+                : mode === "summary"
+                ? "Kendi özetinizi görmek için QR kartınızı okutun."
                 : "Giriş ve çıkış otomatik olarak algılanır."}
             </p>
           </header>
 
           {(status === "idle" || status === "working") && (
             <>
-              <label className="flex items-start gap-2.5 mb-4 bg-panel border border-line rounded-card p-3.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={fieldMode}
-                  onChange={(e) => setFieldMode(e.target.checked)}
-                  className="mt-0.5"
-                />
-                <span className="text-sm text-ink">
-                  <span className="font-medium">Bugün şantiyedeyim</span>
-                  <br />
-                  <span className="text-ink/50 text-xs">
-                    İşyerindeki QR kartına uğramanıza gerek yok, isminizi seçip giriş/çıkış yapın.
-                  </span>
-                </span>
-              </label>
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => switchMode("checkin")}
+                  className={`flex-1 rounded-full px-3 py-2 text-xs font-medium transition ${mode === "checkin" ? "bg-ink text-white" : "bg-panel border border-line text-ink/60"}`}
+                >
+                  Giriş / Çıkış
+                </button>
+                <button
+                  onClick={() => switchMode("field")}
+                  className={`flex-1 rounded-full px-3 py-2 text-xs font-medium transition ${mode === "field" ? "bg-ink text-white" : "bg-panel border border-line text-ink/60"}`}
+                >
+                  Şantiyedeyim
+                </button>
+                <button
+                  onClick={() => switchMode("summary")}
+                  className={`flex-1 rounded-full px-3 py-2 text-xs font-medium transition ${mode === "summary" ? "bg-ink text-white" : "bg-panel border border-line text-ink/60"}`}
+                >
+                  Aylık Özetim
+                </button>
+              </div>
 
-              {fieldMode ? (
+              {mode === "field" ? (
                 <div className="bg-panel border border-line rounded-card p-4 space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-ink/60 mb-1">İsminiz</label>
@@ -233,12 +263,54 @@ export default function ScanPage() {
                   <QRScanner onScan={handleScan} onError={(m) => { setErrorMsg(m); setStatus("error"); }} paused={status === "working"} />
                   {status === "working" && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-card">
-                      <span className="text-white font-medium text-sm">Kaydediliyor…</span>
+                      <span className="text-white font-medium text-sm">
+                        {mode === "summary" ? "Özet hazırlanıyor…" : "Kaydediliyor…"}
+                      </span>
                     </div>
                   )}
                 </div>
               )}
             </>
+          )}
+
+          {status === "summary-result" && summary && (
+            <div className="bg-panel border border-line rounded-card p-6">
+              <div className="text-center mb-5">
+                <p className="font-mono text-xs tracking-wider text-brand uppercase mb-1">{summary.month_label}</p>
+                <h2 className="font-display text-xl font-semibold text-ink">{summary.employee_name}</h2>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <div className="bg-canvas rounded-lg p-3 text-center">
+                  <p className="font-display text-2xl font-semibold text-ink">{summary.days_worked}</p>
+                  <p className="text-xs text-ink/50">Çalışılan gün</p>
+                </div>
+                <div className="bg-canvas rounded-lg p-3 text-center">
+                  <p className="font-display text-2xl font-semibold text-ink">{summary.total_hours}</p>
+                  <p className="text-xs text-ink/50">Toplam saat</p>
+                </div>
+                <div className="bg-canvas rounded-lg p-3 text-center">
+                  <p className="font-display text-2xl font-semibold text-ink">{summary.late_count}</p>
+                  <p className="text-xs text-ink/50">Geç kalma</p>
+                </div>
+                <div className="bg-canvas rounded-lg p-3 text-center">
+                  <p className="font-display text-2xl font-semibold text-ink">{summary.early_leave_count}</p>
+                  <p className="text-xs text-ink/50">Erken çıkış</p>
+                </div>
+              </div>
+              {summary.leave_days_count > 0 && (
+                <p className="text-center text-sm text-ink/60 mt-2">
+                  Bu ay {summary.leave_days_count} gün izinlisiniz.
+                </p>
+              )}
+
+              <button
+                onClick={reset}
+                className="mt-5 w-full rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition"
+              >
+                Tamam
+              </button>
+            </div>
           )}
 
           {status === "result" && result && (
