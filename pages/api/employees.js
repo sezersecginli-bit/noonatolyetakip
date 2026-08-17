@@ -39,9 +39,14 @@ export default async function handler(req, res) {
     if (req.method === "PATCH") {
       const { id, full_name, department, is_active, daily_wage, overtime_hourly_rate, early_leave_deduction_hourly, weekend_multiplier } = req.body;
       if (!id) return res.status(400).json({ error: "id zorunludur." });
+
+      if (full_name !== undefined && !full_name.trim()) {
+        return res.status(400).json({ error: "Ad soyad boş olamaz." });
+      }
+
       const update = {};
-      if (full_name !== undefined) update.full_name = full_name;
-      if (department !== undefined) update.department = department;
+      if (full_name !== undefined) update.full_name = full_name.trim();
+      if (department !== undefined) update.department = department?.trim() || null;
       if (is_active !== undefined) update.is_active = is_active;
       if (daily_wage !== undefined) update.daily_wage = daily_wage;
       if (overtime_hourly_rate !== undefined) update.overtime_hourly_rate = overtime_hourly_rate;

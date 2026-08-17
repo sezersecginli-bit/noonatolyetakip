@@ -12,7 +12,7 @@ export default function EmployeesPage() {
   const [overtimeRate, setOvertimeRate] = useState("");
   const [deductionRate, setDeductionRate] = useState("");
   const [weekendMult, setWeekendMult] = useState("1.5");
-  const [view, setView] = useState("list"); // list | qr
+  const [view, setView] = useState("list");
   const [error, setError] = useState("");
 
   const load = async () => {
@@ -77,11 +77,15 @@ export default function EmployeesPage() {
   };
 
   const [editingId, setEditingId] = useState(null);
-  const [editWage, setEditWage] = useState({});
+  const [editData, setEditData] = useState({});
+  const [editMsg, setEditMsg] = useState("");
 
   const startEdit = (emp) => {
     setEditingId(emp.id);
-    setEditWage({
+    setEditMsg("");
+    setEditData({
+      full_name: emp.full_name,
+      department: emp.department || "",
       daily_wage: emp.daily_wage,
       overtime_hourly_rate: emp.overtime_hourly_rate,
       early_leave_deduction_hourly: emp.early_leave_deduction_hourly,
@@ -90,17 +94,29 @@ export default function EmployeesPage() {
   };
 
   const saveEdit = async (emp) => {
-    await authedFetch("/api/employees", {
+    setEditMsg("");
+    if (!editData.full_name?.trim()) {
+      setEditMsg("Ad soyad boş olamaz.");
+      return;
+    }
+    const res = await authedFetch("/api/employees", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: emp.id,
-        daily_wage: Number(editWage.daily_wage) || 0,
-        overtime_hourly_rate: Number(editWage.overtime_hourly_rate) || 0,
-        early_leave_deduction_hourly: Number(editWage.early_leave_deduction_hourly) || 0,
-        weekend_multiplier: Number(editWage.weekend_multiplier) || 1.5,
+        full_name: editData.full_name,
+        department: editData.department,
+        daily_wage: Number(editData.daily_wage) || 0,
+        overtime_hourly_rate: Number(editData.overtime_hourly_rate) || 0,
+        early_leave_deduction_hourly: Number(editData.early_leave_deduction_hourly) || 0,
+        weekend_multiplier: Number(editData.weekend_multiplier) || 1.5,
       }),
     });
+    const data = await res.json();
+    if (!res.ok) {
+      setEditMsg(data.error || "Kaydedilemedi.");
+      return;
+    }
     setEditingId(null);
     load();
   };
@@ -206,8 +222,7 @@ export default function EmployeesPage() {
           <table className="w-full text-sm">
             <thead className="bg-canvas text-ink/50 text-xs uppercase tracking-wide">
               <tr>
-                <th className="text-left px-4 py-3 font-medium">Ad Soyad</th>
-                <th className="text-left px-4 py-3 font-medium">Departman</th>
+                <th className="text-left px-4 py-3 font-medium">Ad Soyad / Departman</th>
                 <th className="text-left px-4 py-3 font-medium">Durum</th>
                 <th className="text-left px-4 py-3 font-medium">Ücret</th>
                 <th className="text-right px-4 py-3 font-medium">İşlemler</th>
@@ -216,47 +231,73 @@ export default function EmployeesPage() {
             <tbody>
               {employees.map((emp) => (
                 <tr key={emp.id} className="border-t border-line align-top">
-                  <td className="px-4 py-3 font-medium text-ink">{emp.full_name}</td>
-                  <td className="px-4 py-3 text-ink/60">{emp.department || "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${emp.is_active ? "bg-brand-light text-brand-dark" : "bg-line text-ink/40"}`}>
-                      {emp.is_active ? "Aktif" : "Pasif"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {editingId === emp.id ? (
-                      <div className="flex flex-wrap gap-2">
-                        <input type="number" min="0" step="0.01" value={editWage.daily_wage}
-                          onChange={(e) => setEditWage({ ...editWage, daily_wage: e.target.value })}
-                          className="w-20 rounded border border-line px-2 py-1 text-xs" placeholder="Günlük" />
-                        <input type="number" min="0" step="0.01" value={editWage.overtime_hourly_rate}
-                          onChange={(e) => setEditWage({ ...editWage, overtime_hourly_rate: e.target.value })}
-                          className="w-20 rounded border border-line px-2 py-1 text-xs" placeholder="Mesai/sa" />
-                        <input type="number" min="0" step="0.01" value={editWage.early_leave_deduction_hourly}
-                          onChange={(e) => setEditWage({ ...editWage, early_leave_deduction_hourly: e.target.value })}
-                          className="w-20 rounded border border-line px-2 py-1 text-xs" placeholder="Kesinti/sa" />
-                        <input type="number" min="1" step="0.1" value={editWage.weekend_multiplier}
-                          onChange={(e) => setEditWage({ ...editWage, weekend_multiplier: e.target.value })}
-                          className="w-16 rounded border border-line px-2 py-1 text-xs" placeholder="H.sonu×" />
+                  {editingId === emp.id ? (
+                    <>
+                      <td className="px-4 py-3">
+                        <input
+                          value={editData.full_name}
+                          onChange={(e) => setEditData({ ...editData, full_name: e.target.value })}
+                          className="w-full rounded border border-line px-2 py-1.5 text-sm font-medium mb-1.5"
+                          placeholder="Ad Soyad"
+                        />
+                        <input
+                          value={editData.department}
+                          onChange={(e) => setEditData({ ...editData, department: e.target.value })}
+                          className="w-full rounded border border-line px-2 py-1 text-xs"
+                          placeholder="Departman (opsiyonel)"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${emp.is_active ? "bg-brand-light text-brand-dark" : "bg-line text-ink/40"}`}>
+                          {emp.is_active ? "Aktif" : "Pasif"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <input type="number" min="0" step="0.01" value={editData.daily_wage}
+                            onChange={(e) => setEditData({ ...editData, daily_wage: e.target.value })}
+                            className="w-20 rounded border border-line px-2 py-1 text-xs" placeholder="Günlük" />
+                          <input type="number" min="0" step="0.01" value={editData.overtime_hourly_rate}
+                            onChange={(e) => setEditData({ ...editData, overtime_hourly_rate: e.target.value })}
+                            className="w-20 rounded border border-line px-2 py-1 text-xs" placeholder="Mesai/sa" />
+                          <input type="number" min="0" step="0.01" value={editData.early_leave_deduction_hourly}
+                            onChange={(e) => setEditData({ ...editData, early_leave_deduction_hourly: e.target.value })}
+                            className="w-20 rounded border border-line px-2 py-1 text-xs" placeholder="Kesinti/sa" />
+                          <input type="number" min="1" step="0.1" value={editData.weekend_multiplier}
+                            onChange={(e) => setEditData({ ...editData, weekend_multiplier: e.target.value })}
+                            className="w-16 rounded border border-line px-2 py-1 text-xs" placeholder="H.sonu×" />
+                        </div>
+                        {editMsg && <p className="text-danger text-xs mt-1.5">{editMsg}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap space-x-3">
                         <button onClick={() => saveEdit(emp)} className="text-brand text-xs font-medium underline">Kaydet</button>
                         <button onClick={() => setEditingId(null)} className="text-ink/40 text-xs underline">Vazgeç</button>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-ink/60 space-y-0.5">
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-ink">{emp.full_name}</p>
+                        {emp.department && <p className="text-xs text-ink/50">{emp.department}</p>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${emp.is_active ? "bg-brand-light text-brand-dark" : "bg-line text-ink/40"}`}>
+                          {emp.is_active ? "Aktif" : "Pasif"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-ink/60">
                         <p>{emp.daily_wage} TL/gün · {emp.overtime_hourly_rate} TL/sa mesai</p>
                         <p>{emp.early_leave_deduction_hourly} TL/sa kesinti · {emp.weekend_multiplier}× h.sonu</p>
-                        <button onClick={() => startEdit(emp)} className="text-brand underline">Düzenle</button>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right space-x-3 whitespace-nowrap">
-                    <button onClick={() => toggleActive(emp)} className="text-brand text-xs font-medium underline">
-                      {emp.is_active ? "Pasife al" : "Aktive et"}
-                    </button>
-                    <button onClick={() => removeEmployee(emp)} className="text-danger text-xs font-medium underline">
-                      Sil
-                    </button>
-                  </td>
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap space-x-3">
+                        <button onClick={() => startEdit(emp)} className="text-brand text-xs font-medium underline">Düzenle</button>
+                        <button onClick={() => toggleActive(emp)} className="text-brand text-xs font-medium underline">
+                          {emp.is_active ? "Pasife al" : "Aktive et"}
+                        </button>
+                        <button onClick={() => removeEmployee(emp)} className="text-danger text-xs font-medium underline">Sil</button>
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
