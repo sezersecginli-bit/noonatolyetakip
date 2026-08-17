@@ -108,6 +108,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
+      employee_id: employee.id,
       employee_name: employee.full_name,
       log_type,
       logged_at: inserted.logged_at,

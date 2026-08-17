@@ -9,7 +9,7 @@ function todayIstanbul() {
     month: "2-digit",
     day: "2-digit",
   });
-  return fmt.format(new Date()); // en-CA -> YYYY-MM-DD
+  return fmt.format(new Date());
 }
 
 function nowIstanbulParts() {
@@ -40,7 +40,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "QR kod bulunamadı." });
     }
 
-    // 1) Çalışanı bul
     const { data: employee, error: empErr } = await supabaseAdmin
       .from("employees")
       .select("*")
@@ -53,7 +52,6 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: "Bu QR koda ait aktif personel bulunamadı." });
     }
 
-    // 2) Genel ayarları çek
     const { data: settings, error: settingsErr } = await supabaseAdmin
       .from("work_settings")
       .select("*")
@@ -61,7 +59,6 @@ export default async function handler(req, res) {
       .single();
     if (settingsErr) throw settingsErr;
 
-    // 3) GPS doğrulama (opsiyonel)
     let distance_ok = null;
     if (settings.geo_required) {
       if (lat == null || lng == null) {
@@ -82,7 +79,6 @@ export default async function handler(req, res) {
 
     const work_date = todayIstanbul();
 
-    // 4) Bugünün son kaydını bul -> giriş mi çıkış mı otomatik belirle
     const { data: lastLog, error: lastErr } = await supabaseAdmin
       .from("attendance_logs")
       .select("*")
@@ -97,11 +93,9 @@ export default async function handler(req, res) {
     if (forced_type === "in" || forced_type === "out") {
       log_type = forced_type;
     } else {
-      // otomatik algılama: son kayıt yoksa veya son kayıt "out" ise -> "in"
       log_type = !lastLog || lastLog.log_type === "out" ? "in" : "out";
     }
 
-    // Aynı tip art arda okutulmasını engelle (yanlışlıkla çift okutma)
     if (lastLog && lastLog.log_type === log_type) {
       return res.status(409).json({
         error:
@@ -152,6 +146,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
+      employee_id: employee.id,
       employee_name: employee.full_name,
       log_type,
       logged_at: inserted.logged_at,

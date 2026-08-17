@@ -17,6 +17,10 @@ function greetingFor(iso) {
   return "İyi akşamlar";
 }
 
+function workDateFromIso(iso) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date(iso));
+}
+
 export default function ScanPage() {
   const [status, setStatus] = useState("idle");
   const [result, setResult] = useState(null);
@@ -26,6 +30,11 @@ export default function ScanPage() {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const busyRef = useRef(false);
+
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportNote, setReportNote] = useState("");
+  const [reportSent, setReportSent] = useState(false);
+  const [reportSaving, setReportSaving] = useState(false);
 
   useEffect(() => {
     if (fieldMode && employees.length === 0) {
@@ -104,12 +113,37 @@ export default function ScanPage() {
     }
   };
 
+  const submitReport = async () => {
+    if (!result?.employee_id) return;
+    setReportSaving(true);
+    try {
+      await fetch("/api/report-issue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employee_id: result.employee_id,
+          work_date: workDateFromIso(result.logged_at),
+          note: reportNote.trim(),
+        }),
+      });
+      setReportSent(true);
+    } catch {
+      // sessizce geç; en kötü ihtimalle çalışan admin'e sözlü söyler
+      setReportSent(true);
+    } finally {
+      setReportSaving(false);
+    }
+  };
+
   const reset = () => {
     setStatus("idle");
     setResult(null);
     setErrorMsg("");
     setSiteLabel("");
     setSelectedEmployee("");
+    setReportOpen(false);
+    setReportNote("");
+    setReportSent(false);
   };
 
   return (
@@ -244,10 +278,53 @@ export default function ScanPage() {
               {result.is_early_leave && (
                 <p className="text-danger text-sm font-medium mb-1">⚠ Erken çıkış</p>
               )}
-              {result.work_duration_min != null && (
-                <p className="text-ink/60 text-sm">
-                  Bugünkü çalışma süresi: {Math.floor(result.work_duration_min / 60)} sa{" "}
-                  {result.work_duration_min % 60} dk
+
+              {result.log_type === "out" && result.work_duration_min != null && (
+                <div className="bg-canvas rounded-lg px-4 py-3 mb-1">
+                  <p className="text-ink font-medium">
+                    Bugün{" "}
+                    <span className="font-display text-lg">
+                      {Math.floor(result.work_duration_min / 60)} saat {result.work_duration_min % 60} dakika
+                    </span>{" "}
+                    çalıştınız.
+                  </p>
+                </div>
+              )}
+
+              {result.log_type === "out" && !reportSent && (
+                <div className="mt-2">
+                  {!reportOpen ? (
+                    <button
+                      onClick={() => setReportOpen(true)}
+                      className="text-xs text-ink/40 underline"
+                    >
+                      Bu süre yanlış görünüyor, bildir
+                    </button>
+                  ) : (
+                    <div className="text-left mt-3">
+                      <label className="block text-xs font-medium text-ink/60 mb-1">
+                        Ne yanlış? (opsiyonel)
+                      </label>
+                      <input
+                        value={reportNote}
+                        onChange={(e) => setReportNote(e.target.value)}
+                        placeholder="Ör. Sabah giriş saatim yanlış görünüyor"
+                        className="w-full rounded-lg border border-line px-3 py-2 text-sm mb-2"
+                      />
+                      <button
+                        onClick={submitReport}
+                        disabled={reportSaving}
+                        className="w-full rounded-full bg-ink text-white text-sm font-medium py-2.5 disabled:opacity-50"
+                      >
+                        {reportSaving ? "Gönderiliyor…" : "Yöneticiye bildir"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {reportSent && (
+                <p className="text-brand text-sm font-medium mt-2">
+                  Bildirdiniz, yönetici inceleyecek.
                 </p>
               )}
 
