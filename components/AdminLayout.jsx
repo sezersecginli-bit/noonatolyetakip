@@ -6,7 +6,9 @@ import { supabase } from "../lib/supabaseClient";
 const NAV = [
   { href: "/admin", label: "Panel" },
   { href: "/admin/employees", label: "Personel" },
+  { href: "/admin/dayedit", label: "Gün Düzenle" },
   { href: "/admin/leaves", label: "İzinler" },
+  { href: "/admin/issues", label: "Sorunlar" },
   { href: "/admin/reports", label: "Raporlar" },
   { href: "/admin/payroll", label: "Bordro" },
   { href: "/admin/settings", label: "Ayarlar" },
@@ -14,7 +16,7 @@ const NAV = [
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
-  const [session, setSession] = useState(undefined); // undefined = yükleniyor
+  const [session, setSession] = useState(undefined);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -45,7 +47,7 @@ export default function AdminLayout({ children }) {
             <p className="font-mono text-[10px] tracking-wider text-brand uppercase">PDKS</p>
             <p className="font-display text-sm font-semibold text-ink">Yönetici Paneli</p>
           </div>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1 flex-wrap">
             {NAV.map((item) => (
               <Link
                 key={item.href}
