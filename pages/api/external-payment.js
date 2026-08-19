@@ -6,6 +6,15 @@ import { supabaseAdmin } from "../../lib/supabaseAdmin";
 // ortam değişkeniyle korunur — sadece bu anahtarı bilen istemciler
 // kullanabilir.
 export default async function handler(req, res) {
+  // CORS: bu endpoint farklı bir siteden (örn. Netlify'daki Kasa Defteri)
+  // çağrıldığı için tarayıcıya açık izin vermemiz gerekiyor.
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const authHeader = req.headers.authorization || "";
@@ -33,16 +42,21 @@ export default async function handler(req, res) {
       if (error) throw error;
       employee = data;
     } else {
-      // İsimle eşleştirme: büyük/küçük harf ve baş/son boşluk duyarsız
+      // İsimle eşleştirme: büyük/küçük harf duyarsız, kısmi eşleşme.
+      // "Ahmet" hem "Ahmet" hem "Ahmet Yılmaz" ile eşleşebilir.
+      const cleanName = employee_name.trim();
       const { data, error } = await supabaseAdmin
         .from("employees")
         .select("id, full_name")
-        .ilike("full_name", employee_name.trim());
+        .eq("is_active", true)
+        .ilike("full_name", `%${cleanName}%`);
       if (error) throw error;
       if (data.length === 1) {
         employee = data[0];
       } else if (data.length > 1) {
-        return res.status(409).json({ error: `"${employee_name}" adıyla birden fazla personel bulundu, employee_id ile belirtin.` });
+        return res.status(409).json({
+          error: `"${employee_name}" adıyla birden fazla personel eşleşti (${data.map((d) => d.full_name).join(", ")}). employee_id ile belirtin.`,
+        });
       }
     }
 
