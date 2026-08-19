@@ -7,6 +7,7 @@ const NAV = [
   { href: "/admin", label: "Panel" },
   { href: "/admin/employees", label: "Personel" },
   { href: "/admin/dayedit", label: "Gün Düzenle" },
+  { href: "/admin/bulkentry", label: "Toplu Kayıt" },
   { href: "/admin/leaves", label: "İzinler" },
   { href: "/admin/issues", label: "Sorunlar" },
   { href: "/admin/reports", label: "Raporlar" },
