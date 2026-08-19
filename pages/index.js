@@ -21,6 +21,18 @@ function workDateFromIso(iso) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date(iso));
 }
 
+function todayIstanbulStr() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
+}
+
+function firstOfMonthIstanbulStr() {
+  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" });
+  const parts = fmt.formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year").value;
+  const m = parts.find((p) => p.type === "month").value;
+  return `${y}-${m}-01`;
+}
+
 export default function ScanPage() {
   const [mode, setMode] = useState("checkin");
   const [status, setStatus] = useState("idle");
@@ -30,6 +42,8 @@ export default function ScanPage() {
   const [siteLabel, setSiteLabel] = useState("");
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [summaryStart, setSummaryStart] = useState(firstOfMonthIstanbulStr());
+  const [summaryEnd, setSummaryEnd] = useState(todayIstanbulStr());
   const busyRef = useRef(false);
 
   const [reportOpen, setReportOpen] = useState(false);
@@ -38,7 +52,7 @@ export default function ScanPage() {
   const [reportSaving, setReportSaving] = useState(false);
 
   useEffect(() => {
-    if (mode === "field" && employees.length === 0) {
+    if ((mode === "field" || mode === "summary") && employees.length === 0) {
       fetch("/api/employees-public")
         .then((r) => r.json())
         .then((d) => setEmployees(d.employees || []))
@@ -53,23 +67,6 @@ export default function ScanPage() {
     setErrorMsg("");
 
     try {
-      if (mode === "summary") {
-        const res = await fetch("/api/mysummary", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ qr_token: qrText }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setErrorMsg(data.error || "İşlem başarısız.");
-          setStatus("error");
-        } else {
-          setSummary(data);
-          setStatus("summary-result");
-        }
-        return;
-      }
-
       let lat = null,
         lng = null;
       try {
@@ -101,7 +98,55 @@ export default function ScanPage() {
         busyRef.current = false;
       }, 2500);
     }
-  }, [mode]);
+  }, []);
+
+  const [summaryPin, setSummaryPin] = useState("");
+  const [summaryUpdating, setSummaryUpdating] = useState(false);
+
+  const submitSummary = async () => {
+    if (!selectedEmployee) {
+      setErrorMsg("Lütfen isminizi seçin.");
+      setStatus("error");
+      return;
+    }
+    if (!summaryPin.trim()) {
+      setErrorMsg("Lütfen PIN kodunuzu girin.");
+      setStatus("error");
+      return;
+    }
+    const alreadyShowingResult = status === "summary-result";
+    if (alreadyShowingResult) {
+      setSummaryUpdating(true);
+    } else {
+      setStatus("working");
+    }
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/mysummary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employee_id: selectedEmployee,
+          pin_code: summaryPin.trim(),
+          start: summaryStart,
+          end: summaryEnd,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error || "İşlem başarısız.");
+        setStatus("error");
+      } else {
+        setSummary(data);
+        setStatus("summary-result");
+      }
+    } catch (err) {
+      setErrorMsg("Bağlantı hatası: " + err.message);
+      setStatus("error");
+    } finally {
+      setSummaryUpdating(false);
+    }
+  };
 
   const submitSiteCheck = async (forcedType) => {
     if (!selectedEmployee) {
@@ -162,6 +207,7 @@ export default function ScanPage() {
     setReportOpen(false);
     setReportNote("");
     setReportSent(false);
+    setSummaryPin("");
   };
 
   const switchMode = (newMode) => {
@@ -187,7 +233,7 @@ export default function ScanPage() {
               {mode === "field"
                 ? "Şantiyeye vardığınızda Giriş, ayrılırken Çıkış yapın."
                 : mode === "summary"
-                ? "Kendi özetinizi görmek için QR kartınızı okutun."
+                ? "İsminizi seçip PIN kodunuzla özetinizi görün."
                 : "Giriş ve çıkış otomatik olarak algılanır."}
             </p>
           </header>
@@ -258,14 +304,46 @@ export default function ScanPage() {
                     </button>
                   </div>
                 </div>
+              ) : mode === "summary" ? (
+                <div className="bg-panel border border-line rounded-card p-4 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-ink/60 mb-1">İsminiz</label>
+                    <select
+                      value={selectedEmployee}
+                      onChange={(e) => setSelectedEmployee(e.target.value)}
+                      className="w-full rounded-lg border border-line px-3 py-2.5 text-sm bg-panel"
+                    >
+                      <option value="">Seçiniz…</option>
+                      {employees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>{emp.full_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ink/60 mb-1">PIN kodunuz</label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      value={summaryPin}
+                      onChange={(e) => setSummaryPin(e.target.value)}
+                      placeholder="••••"
+                      className="w-full rounded-lg border border-line px-3 py-2.5 text-sm"
+                    />
+                  </div>
+                  <button
+                    onClick={submitSummary}
+                    disabled={status === "working"}
+                    className="w-full rounded-full bg-brand text-white font-medium py-3 active:scale-[0.98] transition disabled:opacity-50"
+                  >
+                    {status === "working" ? "Hazırlanıyor…" : "Özetimi göster"}
+                  </button>
+                </div>
               ) : (
                 <div className="relative">
                   <QRScanner onScan={handleScan} onError={(m) => { setErrorMsg(m); setStatus("error"); }} paused={status === "working"} />
                   {status === "working" && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-card">
-                      <span className="text-white font-medium text-sm">
-                        {mode === "summary" ? "Özet hazırlanıyor…" : "Kaydediliyor…"}
-                      </span>
+                      <span className="text-white font-medium text-sm">Kaydediliyor…</span>
                     </div>
                   )}
                 </div>
@@ -278,6 +356,34 @@ export default function ScanPage() {
               <div className="text-center mb-5">
                 <p className="font-mono text-xs tracking-wider text-brand uppercase mb-1">{summary.month_label}</p>
                 <h2 className="font-display text-xl font-semibold text-ink">{summary.employee_name}</h2>
+              </div>
+
+              <div className="flex gap-2 mb-4">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-ink/60 mb-1">Başlangıç</label>
+                  <input
+                    type="date"
+                    value={summaryStart}
+                    onChange={(e) => setSummaryStart(e.target.value)}
+                    className="w-full rounded-lg border border-line px-2 py-1.5 text-xs"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-ink/60 mb-1">Bitiş</label>
+                  <input
+                    type="date"
+                    value={summaryEnd}
+                    onChange={(e) => setSummaryEnd(e.target.value)}
+                    className="w-full rounded-lg border border-line px-2 py-1.5 text-xs"
+                  />
+                </div>
+                <button
+                  onClick={submitSummary}
+                  disabled={summaryUpdating}
+                  className="self-end rounded-lg bg-ink text-white text-xs font-medium px-3 py-1.5 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {summaryUpdating ? "…" : "Güncelle"}
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-2">
@@ -299,9 +405,47 @@ export default function ScanPage() {
                 </div>
               </div>
               {summary.leave_days_count > 0 && (
-                <p className="text-center text-sm text-ink/60 mt-2">
+                <p className="text-center text-sm text-ink/60 mt-2 mb-3">
                   Bu ay {summary.leave_days_count} gün izinlisiniz.
                 </p>
+              )}
+
+              {summary.days && summary.days.length > 0 && (
+                <div className="mt-4 max-h-64 overflow-y-auto rounded-lg border border-line divide-y divide-line">
+                  {summary.days.map((d) => (
+                    <div key={d.work_date} className="px-3 py-2.5 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-ink">
+                          {(() => {
+                            const [y, m, dd] = d.work_date.split("-");
+                            return `${dd}.${m}.${y}`;
+                          })()}
+                          {d.location === "saha" && (
+                            <span className="ml-1.5 text-xs text-amber font-normal">Şantiye</span>
+                          )}
+                        </span>
+                        <span className="text-ink/60 font-mono text-xs">
+                          {d.check_in
+                            ? new Date(d.check_in).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" })
+                            : "—"}
+                          {" – "}
+                          {d.check_out
+                            ? new Date(d.check_out).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" })
+                            : "—"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {d.work_duration_min != null && (
+                          <span className="text-xs text-ink/40">
+                            {Math.floor(d.work_duration_min / 60)}sa {d.work_duration_min % 60}dk
+                          </span>
+                        )}
+                        {d.is_late && <span className="text-xs text-danger font-medium">Geç</span>}
+                        {d.is_early_leave && <span className="text-xs text-danger font-medium">Erken çıkış</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
 
               <button

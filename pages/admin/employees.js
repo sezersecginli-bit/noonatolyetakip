@@ -12,6 +12,7 @@ export default function EmployeesPage() {
   const [overtimeRate, setOvertimeRate] = useState("");
   const [deductionRate, setDeductionRate] = useState("");
   const [weekendMult, setWeekendMult] = useState("1.5");
+  const [pinCode, setPinCode] = useState("");
   const [view, setView] = useState("list");
   const [error, setError] = useState("");
 
@@ -41,6 +42,7 @@ export default function EmployeesPage() {
         overtime_hourly_rate: overtimeRate ? Number(overtimeRate) : 0,
         early_leave_deduction_hourly: deductionRate ? Number(deductionRate) : 0,
         weekend_multiplier: weekendMult ? Number(weekendMult) : 1.5,
+        pin_code: pinCode,
       }),
     });
     const data = await res.json();
@@ -54,6 +56,7 @@ export default function EmployeesPage() {
     setOvertimeRate("");
     setDeductionRate("");
     setWeekendMult("1.5");
+    setPinCode("");
     load();
   };
 
@@ -90,6 +93,7 @@ export default function EmployeesPage() {
       overtime_hourly_rate: emp.overtime_hourly_rate,
       early_leave_deduction_hourly: emp.early_leave_deduction_hourly,
       weekend_multiplier: emp.weekend_multiplier,
+      pin_code: emp.pin_code || "",
     });
   };
 
@@ -110,6 +114,7 @@ export default function EmployeesPage() {
         overtime_hourly_rate: Number(editData.overtime_hourly_rate) || 0,
         early_leave_deduction_hourly: Number(editData.early_leave_deduction_hourly) || 0,
         weekend_multiplier: Number(editData.weekend_multiplier) || 1.5,
+        pin_code: editData.pin_code,
       }),
     });
     const data = await res.json();
@@ -203,6 +208,16 @@ export default function EmployeesPage() {
             placeholder="1.5"
           />
         </div>
+        <div className="w-[100px]">
+          <label className="block text-xs font-medium text-ink/60 mb-1">PIN (özet için)</label>
+          <input
+            value={pinCode}
+            onChange={(e) => setPinCode(e.target.value)}
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm"
+            placeholder="1234"
+            maxLength={8}
+          />
+        </div>
         <button type="submit" className="rounded-full bg-brand text-white font-medium px-5 py-2 text-sm">
           Ekle
         </button>
@@ -266,6 +281,9 @@ export default function EmployeesPage() {
                           <input type="number" min="1" step="0.1" value={editData.weekend_multiplier}
                             onChange={(e) => setEditData({ ...editData, weekend_multiplier: e.target.value })}
                             className="w-16 rounded border border-line px-2 py-1 text-xs" placeholder="H.sonu×" />
+                          <input value={editData.pin_code}
+                            onChange={(e) => setEditData({ ...editData, pin_code: e.target.value })}
+                            className="w-16 rounded border border-line px-2 py-1 text-xs" placeholder="PIN" />
                         </div>
                         {editMsg && <p className="text-danger text-xs mt-1.5">{editMsg}</p>}
                       </td>
@@ -288,6 +306,7 @@ export default function EmployeesPage() {
                       <td className="px-4 py-3 text-xs text-ink/60">
                         <p>{emp.daily_wage} TL/gün · {emp.overtime_hourly_rate} TL/sa mesai</p>
                         <p>{emp.early_leave_deduction_hourly} TL/sa kesinti · {emp.weekend_multiplier}× h.sonu</p>
+                        <p>PIN: {emp.pin_code || "—"}</p>
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap space-x-3">
                         <button onClick={() => startEdit(emp)} className="text-brand text-xs font-medium underline">Düzenle</button>

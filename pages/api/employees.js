@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { full_name, department, daily_wage, overtime_hourly_rate, early_leave_deduction_hourly, weekend_multiplier } = req.body;
+      const { full_name, department, daily_wage, overtime_hourly_rate, early_leave_deduction_hourly, weekend_multiplier, pin_code } = req.body;
       if (!full_name?.trim()) {
         return res.status(400).json({ error: "Ad soyad zorunludur." });
       }
@@ -29,6 +29,7 @@ export default async function handler(req, res) {
           overtime_hourly_rate: overtime_hourly_rate ?? 0,
           early_leave_deduction_hourly: early_leave_deduction_hourly ?? 0,
           weekend_multiplier: weekend_multiplier ?? 1.5,
+          pin_code: pin_code?.trim() || null,
         })
         .select()
         .single();
@@ -37,7 +38,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "PATCH") {
-      const { id, full_name, department, is_active, daily_wage, overtime_hourly_rate, early_leave_deduction_hourly, weekend_multiplier } = req.body;
+      const { id, full_name, department, is_active, daily_wage, overtime_hourly_rate, early_leave_deduction_hourly, weekend_multiplier, pin_code } = req.body;
       if (!id) return res.status(400).json({ error: "id zorunludur." });
 
       if (full_name !== undefined && !full_name.trim()) {
@@ -52,6 +53,7 @@ export default async function handler(req, res) {
       if (overtime_hourly_rate !== undefined) update.overtime_hourly_rate = overtime_hourly_rate;
       if (early_leave_deduction_hourly !== undefined) update.early_leave_deduction_hourly = early_leave_deduction_hourly;
       if (weekend_multiplier !== undefined) update.weekend_multiplier = weekend_multiplier;
+      if (pin_code !== undefined) update.pin_code = pin_code?.trim() || null;
 
       const { data, error } = await supabaseAdmin
         .from("employees")
