@@ -6,9 +6,8 @@ function timeStrToMinutes(t) {
   return h * 60 + m;
 }
 
-// work_date "YYYY-MM-DD" -> hafta sonu mu? (Cumartesi=6, Pazar=0)
 function isWeekend(dateStr) {
-  const d = new Date(dateStr + "T12:00:00Z"); // öğlen kullanarak gün kaymasını önlüyoruz
+  const d = new Date(dateStr + "T12:00:00Z");
   const day = d.getUTCDay();
   return day === 0 || day === 6;
 }
@@ -58,6 +57,15 @@ export default async function handler(req, res) {
       .lte("work_date", end);
     if (leaveErr) throw leaveErr;
 
+    let payQuery = supabaseAdmin
+      .from("payments")
+      .select("*")
+      .gte("payment_date", start)
+      .lte("payment_date", end);
+    if (employee_id) payQuery = payQuery.eq("employee_id", employee_id);
+    const { data: payments, error: payErr } = await payQuery;
+    if (payErr) throw payErr;
+
     const companyLeaves = leaves.filter((l) => l.employee_id === null);
 
     const result = employees.map((emp) => {
@@ -104,7 +112,6 @@ export default async function handler(req, res) {
         };
       });
 
-      // İzinli günleri ekle (bu gün için zaten bir giriş/çıkış kaydı yoksa)
       const personalLeaves = leaves.filter((l) => l.employee_id === emp.id);
       const allLeavesForEmp = [...personalLeaves, ...companyLeaves];
       const seenDates = new Set(days.map((d) => d.work_date));
@@ -137,6 +144,13 @@ export default async function handler(req, res) {
 
       const totalPay = Math.round(days.reduce((s, d) => s + d.total_pay, 0) * 100) / 100;
 
+      const empPayments = payments
+        .filter((p) => p.employee_id === emp.id)
+        .map((p) => ({ id: p.id, amount: p.amount, payment_date: p.payment_date, note: p.note }))
+        .sort((a, b) => (a.payment_date < b.payment_date ? 1 : -1));
+      const totalPaid = Math.round(empPayments.reduce((s, p) => s + Number(p.amount), 0) * 100) / 100;
+      const remaining = Math.round((totalPay - totalPaid) * 100) / 100;
+
       return {
         employee_id: emp.id,
         full_name: emp.full_name,
@@ -148,6 +162,9 @@ export default async function handler(req, res) {
         days_worked: days.filter((d) => !d.is_leave).length,
         days_leave: days.filter((d) => d.is_leave).length,
         total_pay: totalPay,
+        payments: empPayments,
+        total_paid: totalPaid,
+        remaining,
       };
     });
 
