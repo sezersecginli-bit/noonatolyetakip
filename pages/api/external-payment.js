@@ -61,7 +61,11 @@ export default async function handler(req, res) {
     }
 
     if (!employee) {
-      return res.status(404).json({ error: `Personel bulunamadı: ${employee_name || employee_id}` });
+      return res.status(404).json({
+        error: `Personel bulunamadı: ${employee_name || employee_id}`,
+        debug_version: "v2-ilike-fix",
+        debug_search: employee_name ? employee_name.trim() : null,
+      });
     }
 
     const { data: inserted, error: insertErr } = await supabaseAdmin
