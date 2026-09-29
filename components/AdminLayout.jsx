@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabaseClient";
 
 const NAV = [
   { href: "/admin", label: "Panel" },
+  { href: "/admin/attendance-grid", label: "Devam Tablosu" },
   { href: "/admin/employees", label: "Personel" },
   { href: "/admin/dayedit", label: "Gün Düzenle" },
   { href: "/admin/bulkentry", label: "Toplu Kayıt" },
@@ -81,9 +82,6 @@ export async function authedFetch(url, options = {}) {
   const token = data.session?.access_token;
   return fetch(url, {
     ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` },
   });
 }
