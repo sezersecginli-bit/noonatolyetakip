@@ -70,23 +70,78 @@ export default function AttendanceGridPage() {
 
   const exportExcel = async () => {
     if (!data) return;
-    const XLSX = await import("xlsx");
-    const rows = data.employees.map((emp) => {
-      const row = {
-        "Personel": emp.full_name,
-        "Toplam Mesai (sa)": data.cells[emp.id].__overtimeHours,
-        "Departman": emp.department || "",
-        "Günlük Ücret": emp.daily_wage,
-      };
-      data.days.forEach((d) => { row[dayNum(d)] = data.cells[emp.id][d].code || ""; });
-      row["Çalışılan Gün"] = data.cells[emp.id].__workedDays;
-      row["Toplam Ücret"] = payroll[emp.id]?.total_pay ?? "";
-      return row;
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(`${MONTH_NAMES[month]} ${year}`);
+
+    ws.columns = [
+      { header: "Personel", key: "personel", width: 20 },
+      { header: "Toplam Mesai (sa)", key: "mesai", width: 15 },
+      { header: "Departman", key: "departman", width: 14 },
+      { header: "Günlük Ücret", key: "ucret", width: 13 },
+      ...data.days.map((d) => ({ header: String(dayNum(d)), key: d, width: 4 })),
+      { header: "Çalışılan Gün", key: "gun", width: 12 },
+      { header: "Toplam Ücret", key: "toplam", width: 14 },
+    ];
+
+    const CODE_COLORS = { W: "FF3B5B72", WH: "FFC4762F", O: "FFFFE066", H: "FFD8B4FE", V: "FFBFDBFE", S: "FFFCA5A5", M: "FFD1D5DB", "": "FFF3F2ED" };
+    const CODE_FONT = { W: "FFFFFFFF", WH: "FFFFFFFF", O: "FF1B1E24", H: "FF1B1E24", V: "FF1B1E24", S: "FF1B1E24", M: "FF1B1E24", "": "FFB9B6AC" };
+    const THIN = { style: "thin", color: { argb: "FFE2E0D8" } };
+
+    // Başlık satırı
+    const headerRow = ws.getRow(1);
+    headerRow.height = 26;
+    headerRow.eachCell((cell, colNumber) => {
+      const dayIdx = colNumber - 5;
+      const isWeekendCol = dayIdx >= 0 && dayIdx < data.days.length && isWeekendStr(data.days[dayIdx]);
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: isWeekendCol ? "FFC4762F" : "FF3B5B72" } };
+      cell.border = { top: THIN, bottom: THIN, left: THIN, right: THIN };
     });
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `${MONTH_NAMES[month]} ${year}`);
-    XLSX.writeFile(wb, `devam_tablosu_${MONTH_NAMES[month]}_${year}.xlsx`);
+
+    // Veri satırları
+    data.employees.forEach((emp) => {
+      const rowObj = {
+        personel: emp.full_name,
+        mesai: data.cells[emp.id].__overtimeHours || 0,
+        departman: emp.department || "—",
+        ucret: emp.daily_wage,
+        gun: data.cells[emp.id].__workedDays,
+        toplam: payroll[emp.id]?.total_pay ?? "",
+      };
+      data.days.forEach((d) => { rowObj[d] = data.cells[emp.id][d].code || ""; });
+
+      const row = ws.addRow(rowObj);
+      row.height = 18;
+      row.eachCell((cell, colNumber) => {
+        cell.border = { top: THIN, bottom: THIN, left: THIN, right: THIN };
+        cell.alignment = { horizontal: colNumber === 1 ? "left" : "center", vertical: "middle" };
+        if (colNumber === 1) cell.font = { bold: true, size: 10 };
+        else cell.font = { size: 10 };
+      });
+
+      data.days.forEach((d, i) => {
+        const col = 5 + i;
+        const code = data.cells[emp.id][d].code || "";
+        const cell = row.getCell(col);
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CODE_COLORS[code] } };
+        cell.font = { bold: true, size: 10, color: { argb: CODE_FONT[code] } };
+      });
+
+      row.getCell(2).font = { bold: true, size: 10, color: { argb: "FFC4762F" } };
+    });
+
+    ws.views = [{ state: "frozen", xSplit: 1, ySplit: 1 }];
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `devam_tablosu_${MONTH_NAMES[month]}_${year}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (

@@ -110,12 +110,11 @@ export default function DayEditPage() {
       <h1 className="font-display text-2xl font-semibold text-ink mb-2">Gün Düzenle</h1>
       <p className="text-sm text-ink/50 mb-6">
         Bir çalışanın belirli bir gündeki tüm giriş/çıkış kayıtlarını görüp, saatlerini
-        istediğin gibi değiştirebilir, silebilir ya da yeni kayıt ekleyebilirsin. Hiçbir
-        sıralama kısıtlaması yok — tam kontrol sende.
+        istediğin gibi değiştirebilir, silebilir ya da yeni kayıt ekleyebilirsin.
       </p>
 
       <div className="bg-panel border border-line rounded-card p-4 mb-6 flex flex-wrap items-end gap-3">
-        <div className="min-w-[200px]">
+        <div className="min-w-[200px] flex-1">
           <label className="block text-xs font-medium text-ink/60 mb-1">Personel</label>
           <select
             value={employeeId}
@@ -150,75 +149,77 @@ export default function DayEditPage() {
 
       {loaded && (
         <>
-          <div className="bg-panel border border-line rounded-card overflow-hidden mb-4">
-            <table className="w-full text-sm">
-              <thead className="bg-canvas text-ink/50 text-xs uppercase tracking-wide">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium">Tip</th>
-                  <th className="text-left px-4 py-3 font-medium">Saat</th>
-                  <th className="text-left px-4 py-3 font-medium">Konum</th>
-                  <th className="text-left px-4 py-3 font-medium">Süre</th>
-                  <th className="text-right px-4 py-3 font-medium">İşlem</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-ink/40">Yükleniyor…</td></tr>
-                ) : logs.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-ink/40">Bu gün için kayıt yok.</td></tr>
-                ) : (
-                  logs.map((l) => (
-                    <tr key={l.id} className="border-t border-line">
-                      <td className="px-4 py-3">
-                        <select
-                          value={l.log_type}
-                          onChange={(e) => changeType(l.id, e.target.value)}
-                          className="rounded-lg border border-line px-2 py-1.5 text-sm bg-panel"
-                        >
-                          <option value="in">Giriş</option>
-                          <option value="out">Çıkış</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="time"
-                          value={editTimes[l.id] || ""}
-                          onChange={(e) => setEditTimes({ ...editTimes, [l.id]: e.target.value })}
-                          className="rounded-lg border border-line px-2 py-1.5 text-sm"
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-ink/60">
-                        {l.location === "saha" ? `Şantiye${l.site_label ? " (" + l.site_label + ")" : ""}` : "Atölye"}
-                      </td>
-                      <td className="px-4 py-3 text-ink/60">
-                        {l.work_duration_min != null
-                          ? `${Math.floor(l.work_duration_min / 60)}sa ${l.work_duration_min % 60}dk`
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right space-x-3 whitespace-nowrap">
-                        <button onClick={() => saveEdit(l.id)} className="text-brand text-xs font-medium underline">
-                          Kaydet
-                        </button>
-                        <button onClick={() => removeLog(l.id)} className="text-danger text-xs font-medium underline">
-                          Sil
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          {/* Mobil dahil her ekranda kart görünümü — yatay kaydırma gerektirmez */}
+          <div className="space-y-3 mb-6">
+            {loading ? (
+              <p className="text-ink/40 text-sm text-center py-8">Yükleniyor…</p>
+            ) : logs.length === 0 ? (
+              <p className="text-ink/40 text-sm text-center py-8">Bu gün için kayıt yok.</p>
+            ) : (
+              logs.map((l) => (
+                <div key={l.id} className="bg-panel border border-line rounded-card p-4">
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-ink/60 mb-1">Tip</label>
+                      <select
+                        value={l.log_type}
+                        onChange={(e) => changeType(l.id, e.target.value)}
+                        className="w-full rounded-lg border border-line px-2 py-2 text-sm bg-panel"
+                      >
+                        <option value="in">Giriş</option>
+                        <option value="out">Çıkış</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink/60 mb-1">Saat</label>
+                      <input
+                        type="time"
+                        value={editTimes[l.id] || ""}
+                        onChange={(e) => setEditTimes({ ...editTimes, [l.id]: e.target.value })}
+                        className="w-full rounded-lg border border-line px-2 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-ink/50 mb-3">
+                    <span>
+                      {l.location === "saha" ? `Şantiye${l.site_label ? " (" + l.site_label + ")" : ""}` : "Atölye"}
+                    </span>
+                    <span>
+                      {l.work_duration_min != null
+                        ? `${Math.floor(l.work_duration_min / 60)}sa ${l.work_duration_min % 60}dk`
+                        : "—"}
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => saveEdit(l.id)}
+                      className="flex-1 rounded-full bg-brand text-white text-sm font-medium py-2.5"
+                    >
+                      Kaydet
+                    </button>
+                    <button
+                      onClick={() => removeLog(l.id)}
+                      className="flex-1 rounded-full border border-danger/30 text-danger text-sm font-medium py-2.5"
+                    >
+                      Sil
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           <div className="bg-panel border border-brand/30 rounded-card p-4">
             <p className="font-medium text-ink text-sm mb-3">Yeni kayıt ekle</p>
-            <div className="flex flex-wrap items-end gap-3">
+            <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
                 <label className="block text-xs font-medium text-ink/60 mb-1">Tip</label>
                 <select
                   value={newType}
                   onChange={(e) => setNewType(e.target.value)}
-                  className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
+                  className="w-full rounded-lg border border-line px-3 py-2 text-sm bg-panel"
                 >
                   <option value="in">Giriş</option>
                   <option value="out">Çıkış</option>
@@ -230,13 +231,13 @@ export default function DayEditPage() {
                   type="time"
                   value={newTime}
                   onChange={(e) => setNewTime(e.target.value)}
-                  className="rounded-lg border border-line px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-line px-3 py-2 text-sm"
                 />
               </div>
-              <button onClick={addLog} className="rounded-full bg-brand text-white text-sm font-medium px-5 py-2">
-                Ekle
-              </button>
             </div>
+            <button onClick={addLog} className="w-full rounded-full bg-brand text-white text-sm font-medium py-2.5">
+              Ekle
+            </button>
           </div>
         </>
       )}
