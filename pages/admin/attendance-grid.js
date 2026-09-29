@@ -68,13 +68,40 @@ export default function AttendanceGridPage() {
     setMonth(m); setYear(y);
   };
 
+  const exportExcel = async () => {
+    if (!data) return;
+    const XLSX = await import("xlsx");
+    const rows = data.employees.map((emp) => {
+      const row = {
+        "Personel": emp.full_name,
+        "Toplam Mesai (sa)": data.cells[emp.id].__overtimeHours,
+        "Departman": emp.department || "",
+        "Günlük Ücret": emp.daily_wage,
+      };
+      data.days.forEach((d) => { row[dayNum(d)] = data.cells[emp.id][d].code || ""; });
+      row["Çalışılan Gün"] = data.cells[emp.id].__workedDays;
+      row["Toplam Ücret"] = payroll[emp.id]?.total_pay ?? "";
+      return row;
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${MONTH_NAMES[month]} ${year}`);
+    XLSX.writeFile(wb, `devam_tablosu_${MONTH_NAMES[month]}_${year}.xlsx`);
+  };
+
   return (
     <AdminLayout>
       <Head><title>Devam Tablosu - PDKS</title></Head>
 
-      <h1 className="font-display text-2xl font-semibold text-ink mb-2">Devam Tablosu</h1>
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
+        <h1 className="font-display text-2xl font-semibold text-ink">Devam Tablosu</h1>
+        <button onClick={exportExcel} disabled={!data} className="rounded-full border border-line px-4 py-2 text-sm font-medium disabled:opacity-40">
+          Excel indir
+        </button>
+      </div>
       <p className="text-sm text-ink/50 mb-6">
-        Kimin hangi gün geldiğini, tam ay görünümünde, harf kodlarıyla tek bakışta gör.
+        Kimin hangi gün geldiğini, tam ay görünümünde, harf kodlarıyla tek bakışta gör. Bir günün
+        üzerine gel/dokun, o günkü mesai saatini görürsün.
       </p>
 
       <div className="flex items-center gap-3 mb-6">
@@ -93,6 +120,7 @@ export default function AttendanceGridPage() {
               <thead>
                 <tr>
                   <th className="sticky left-0 bg-panel text-left px-3 py-2 border-b border-r border-line font-medium text-ink/60 whitespace-nowrap z-10">Personel</th>
+                  <th className="px-2 py-2 border-b border-line text-center font-medium text-ink/60 whitespace-nowrap bg-amber-light/30">Toplam Mesai (sa)</th>
                   <th className="text-left px-2 py-2 border-b border-line font-medium text-ink/60 whitespace-nowrap">Departman</th>
                   <th className="text-right px-2 py-2 border-b border-line font-medium text-ink/60 whitespace-nowrap">Günlük Ücret</th>
                   {data.days.map((d) => (
@@ -108,10 +136,14 @@ export default function AttendanceGridPage() {
               <tbody>
                 {data.employees.map((emp) => {
                   const workedDays = data.cells[emp.id].__workedDays;
+                  const overtimeHours = data.cells[emp.id].__overtimeHours;
                   const pay = payroll[emp.id];
                   return (
                     <tr key={emp.id} className="border-b border-line/60">
                       <td className="sticky left-0 bg-panel px-3 py-1.5 border-r border-line font-medium text-ink whitespace-nowrap z-10">{emp.full_name}</td>
+                      <td className="px-2 py-1.5 text-center font-semibold text-amber bg-amber-light/20 whitespace-nowrap">
+                        {overtimeHours > 0 ? `${overtimeHours} sa` : "—"}
+                      </td>
                       <td className="px-2 py-1.5 text-ink/60 whitespace-nowrap">{emp.department || "—"}</td>
                       <td className="px-2 py-1.5 text-right text-ink/60 whitespace-nowrap">{tl(emp.daily_wage)}</td>
                       {data.days.map((d) => {
@@ -121,7 +153,8 @@ export default function AttendanceGridPage() {
                           cell.code === "O" ? "Mesai yaptı" : cell.code === "H" ? "Resmi tatil" :
                           cell.code === "V" ? "Yıllık izin" : cell.code === "S" ? "Hastalık" :
                           cell.code === "M" ? "Mazeret izni" : "Gelmedi",
-                          cell.worked_hours ? `${cell.worked_hours} sa` : "",
+                          cell.worked_hours ? `Toplam: ${cell.worked_hours} sa` : "",
+                          cell.overtime_hours > 0 ? `Mesai: ${cell.overtime_hours} sa` : "",
                           cell.is_late ? "Geç" : "", cell.is_early_leave ? "Erken çıkış" : "",
                           cell.location === "saha" ? "Şantiye" : "",
                         ].filter(Boolean).join(" · ");

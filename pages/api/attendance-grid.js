@@ -77,12 +77,11 @@ export default async function handler(req, res) {
     const days = dateRange(start, end);
 
     const cells = {};
-    const totals = {};
 
     for (const emp of employees) {
       cells[emp.id] = {};
       let workedDays = 0;
-      let totalPay = 0;
+      let totalOvertimeMinutes = 0;
 
       for (const day of days) {
         const dayLogs = logs.filter((l) => l.employee_id === emp.id && l.work_date === day);
@@ -103,10 +102,10 @@ export default async function handler(req, res) {
           else if (overtimeMinutes > 0) code = "O";
           else code = "W";
           workedDays += 1;
+          totalOvertimeMinutes += overtimeMinutes;
         } else if (leaveType) {
           code = LEAVE_CODE[leaveType] || "İ";
         }
-        // else: gelmedi -> boş kod
 
         cells[emp.id][day] = {
           code,
@@ -114,11 +113,12 @@ export default async function handler(req, res) {
           is_early_leave: isEarly,
           location,
           worked_hours: Math.round((workedMinutes / 60) * 10) / 10,
+          overtime_hours: Math.round((overtimeMinutes / 60) * 10) / 10,
         };
       }
 
       cells[emp.id].__workedDays = workedDays;
-      totals[emp.id] = { workedDays };
+      cells[emp.id].__overtimeHours = Math.round((totalOvertimeMinutes / 60) * 10) / 10;
     }
 
     return res.status(200).json({
