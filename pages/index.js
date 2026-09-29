@@ -21,10 +21,6 @@ function workDateFromIso(iso) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date(iso));
 }
 
-function todayIstanbulStr() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
-}
-
 function firstOfMonthIstanbulStr() {
   const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" });
   const parts = fmt.formatToParts(new Date());
@@ -33,8 +29,12 @@ function firstOfMonthIstanbulStr() {
   return `${y}-${m}-01`;
 }
 
+function todayIstanbulStr() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
+}
+
 export default function ScanPage() {
-  const [mode, setMode] = useState("checkin");
+  const [mode, setMode] = useState("checkin"); // checkin | field | summary
   const [status, setStatus] = useState("idle");
   const [result, setResult] = useState(null);
   const [summary, setSummary] = useState(null);
@@ -44,6 +44,8 @@ export default function ScanPage() {
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [summaryStart, setSummaryStart] = useState(firstOfMonthIstanbulStr());
   const [summaryEnd, setSummaryEnd] = useState(todayIstanbulStr());
+  const [summaryPin, setSummaryPin] = useState("");
+  const [summaryUpdating, setSummaryUpdating] = useState(false);
   const busyRef = useRef(false);
 
   const [reportOpen, setReportOpen] = useState(false);
@@ -100,54 +102,6 @@ export default function ScanPage() {
     }
   }, []);
 
-  const [summaryPin, setSummaryPin] = useState("");
-  const [summaryUpdating, setSummaryUpdating] = useState(false);
-
-  const submitSummary = async () => {
-    if (!selectedEmployee) {
-      setErrorMsg("Lütfen isminizi seçin.");
-      setStatus("error");
-      return;
-    }
-    if (!summaryPin.trim()) {
-      setErrorMsg("Lütfen PIN kodunuzu girin.");
-      setStatus("error");
-      return;
-    }
-    const alreadyShowingResult = status === "summary-result";
-    if (alreadyShowingResult) {
-      setSummaryUpdating(true);
-    } else {
-      setStatus("working");
-    }
-    setErrorMsg("");
-    try {
-      const res = await fetch("/api/mysummary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employee_id: selectedEmployee,
-          pin_code: summaryPin.trim(),
-          start: summaryStart,
-          end: summaryEnd,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(data.error || "İşlem başarısız.");
-        setStatus("error");
-      } else {
-        setSummary(data);
-        setStatus("summary-result");
-      }
-    } catch (err) {
-      setErrorMsg("Bağlantı hatası: " + err.message);
-      setStatus("error");
-    } finally {
-      setSummaryUpdating(false);
-    }
-  };
-
   const submitSiteCheck = async (forcedType) => {
     if (!selectedEmployee) {
       setErrorMsg("Lütfen isminizi seçin.");
@@ -173,6 +127,48 @@ export default function ScanPage() {
     } catch (err) {
       setErrorMsg("Bağlantı hatası: " + err.message);
       setStatus("error");
+    }
+  };
+
+  const submitSummary = async () => {
+    if (!selectedEmployee) {
+      setErrorMsg("Lütfen isminizi seçin.");
+      setStatus("error");
+      return;
+    }
+    if (!summaryPin.trim()) {
+      setErrorMsg("Lütfen PIN kodunuzu girin.");
+      setStatus("error");
+      return;
+    }
+    const alreadyShowingResult = status === "summary-result";
+    if (alreadyShowingResult) setSummaryUpdating(true);
+    else setStatus("working");
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/mysummary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employee_id: selectedEmployee,
+          pin_code: summaryPin.trim(),
+          start: summaryStart,
+          end: summaryEnd,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error || "İşlem başarısız.");
+        setStatus("error");
+      } else {
+        setSummary(data);
+        setStatus("summary-result");
+      }
+    } catch (err) {
+      setErrorMsg("Bağlantı hatası: " + err.message);
+      setStatus("error");
+    } finally {
+      setSummaryUpdating(false);
     }
   };
 
@@ -361,27 +357,16 @@ export default function ScanPage() {
               <div className="flex gap-2 mb-4">
                 <div className="flex-1">
                   <label className="block text-xs font-medium text-ink/60 mb-1">Başlangıç</label>
-                  <input
-                    type="date"
-                    value={summaryStart}
-                    onChange={(e) => setSummaryStart(e.target.value)}
-                    className="w-full rounded-lg border border-line px-2 py-1.5 text-xs"
-                  />
+                  <input type="date" value={summaryStart} onChange={(e) => setSummaryStart(e.target.value)}
+                    className="w-full rounded-lg border border-line px-2 py-1.5 text-xs" />
                 </div>
                 <div className="flex-1">
                   <label className="block text-xs font-medium text-ink/60 mb-1">Bitiş</label>
-                  <input
-                    type="date"
-                    value={summaryEnd}
-                    onChange={(e) => setSummaryEnd(e.target.value)}
-                    className="w-full rounded-lg border border-line px-2 py-1.5 text-xs"
-                  />
+                  <input type="date" value={summaryEnd} onChange={(e) => setSummaryEnd(e.target.value)}
+                    className="w-full rounded-lg border border-line px-2 py-1.5 text-xs" />
                 </div>
-                <button
-                  onClick={submitSummary}
-                  disabled={summaryUpdating}
-                  className="self-end rounded-lg bg-ink text-white text-xs font-medium px-3 py-1.5 disabled:opacity-50 whitespace-nowrap"
-                >
+                <button onClick={submitSummary} disabled={summaryUpdating}
+                  className="self-end rounded-lg bg-ink text-white text-xs font-medium px-3 py-1.5 disabled:opacity-50 whitespace-nowrap">
                   {summaryUpdating ? "…" : "Güncelle"}
                 </button>
               </div>
@@ -493,6 +478,23 @@ export default function ScanPage() {
               )}
               {result.is_early_leave && (
                 <p className="text-danger text-sm font-medium mb-1">⚠ Erken çıkış</p>
+              )}
+
+              {result.log_type === "in" && !result.is_late && (
+                <div className="bg-brand-light rounded-lg px-4 py-3 mb-1 mt-2">
+                  <p className="text-brand-dark text-sm italic">
+                    "Erken uyanan ve işine erken koşan kişinin rızkı bereketli olur."
+                  </p>
+                </div>
+              )}
+
+              {result.log_type === "in" && result.is_late && (
+                <div className="bg-amber-light rounded-lg px-4 py-3 mb-1 mt-2">
+                  <p className="text-amber text-sm italic">
+                    "Geç kalmak bir alışkanlık değil, yalnızca bugüne mahsus bir yol kazasıdır;
+                    aslolan sadakatle üretmeye devam etmektir."
+                  </p>
+                </div>
               )}
 
               {result.log_type === "out" && result.work_duration_min != null && (
