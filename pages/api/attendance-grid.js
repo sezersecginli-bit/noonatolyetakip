@@ -96,9 +96,14 @@ export default async function handler(req, res) {
         const isEarly = dayLogs.some((l) => l.is_early_leave);
         const location = dayLogs.some((l) => l.location === "saha") ? "saha" : "atolye";
 
+        const hasIn = dayLogs.some((l) => l.log_type === "in");
+        const hasOut = dayLogs.some((l) => l.log_type === "out");
+        const missingCheckout = hasIn && !hasOut;
+
         let code = "";
         if (dayLogs.length > 0) {
-          if (weekend) code = "WH";
+          if (missingCheckout) code = "!";
+          else if (weekend) code = "WH";
           else if (overtimeMinutes > 0) code = "O";
           else code = "W";
           workedDays += 1;
@@ -112,6 +117,7 @@ export default async function handler(req, res) {
           is_late: isLate,
           is_early_leave: isEarly,
           location,
+          missing_checkout: missingCheckout,
           worked_hours: Math.round((workedMinutes / 60) * 10) / 10,
           overtime_hours: Math.round((overtimeMinutes / 60) * 10) / 10,
         };

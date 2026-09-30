@@ -32,6 +32,7 @@ const CODE_STYLES = {
   V:  "bg-blue-200 text-blue-800",
   S:  "bg-red-200 text-red-800",
   M:  "bg-gray-300 text-ink",
+  "!": "bg-danger text-white animate-pulse",
   "": "bg-line/30 text-ink/20",
 };
 
@@ -84,8 +85,8 @@ export default function AttendanceGridPage() {
       { header: "Toplam Ücret", key: "toplam", width: 14 },
     ];
 
-    const CODE_COLORS = { W: "FF3B5B72", WH: "FFC4762F", O: "FFFFE066", H: "FFD8B4FE", V: "FFBFDBFE", S: "FFFCA5A5", M: "FFD1D5DB", "": "FFF3F2ED" };
-    const CODE_FONT = { W: "FFFFFFFF", WH: "FFFFFFFF", O: "FF1B1E24", H: "FF1B1E24", V: "FF1B1E24", S: "FF1B1E24", M: "FF1B1E24", "": "FFB9B6AC" };
+    const CODE_COLORS = { W: "FF3B5B72", WH: "FFC4762F", O: "FFFFE066", H: "FFD8B4FE", V: "FFBFDBFE", S: "FFFCA5A5", M: "FFD1D5DB", "!": "FFB3452F", "": "FFF3F2ED" };
+    const CODE_FONT = { W: "FFFFFFFF", WH: "FFFFFFFF", O: "FF1B1E24", H: "FF1B1E24", V: "FF1B1E24", S: "FF1B1E24", M: "FF1B1E24", "!": "FFFFFFFF", "": "FFB9B6AC" };
     const THIN = { style: "thin", color: { argb: "FFE2E0D8" } };
 
     // Başlık satırı
@@ -204,6 +205,7 @@ export default function AttendanceGridPage() {
                       {data.days.map((d) => {
                         const cell = data.cells[emp.id][d];
                         const title = [
+                          cell.code === "!" ? "⚠ ÇIKIŞ YAPILMADI" :
                           cell.code === "W" ? "Çalıştı" : cell.code === "WH" ? "Hafta sonu çalıştı" :
                           cell.code === "O" ? "Mesai yaptı" : cell.code === "H" ? "Resmi tatil" :
                           cell.code === "V" ? "Yıllık izin" : cell.code === "S" ? "Hastalık" :
@@ -238,6 +240,7 @@ export default function AttendanceGridPage() {
             <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-blue-200 inline-block" /> V — Yıllık izin</span>
             <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-red-200 inline-block" /> S — Hastalık</span>
             <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-gray-300 inline-block" /> M — Mazeret</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-danger inline-block" /> ! — Çıkış yapılmadı</span>
             <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded ring-2 ring-danger inline-block" /> Geç / erken çıkış</span>
           </div>
         </>
